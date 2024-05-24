@@ -167,31 +167,6 @@ def create_pop_coverage_input(pred_results, parameters, filename):
 	return pop_input_name
 
 # -------------------------------------
-# def run_mhci_prediction(inputfile, parameters):
-
-# 	'''
-# 		Calls MHC-I prediction tool from the IEDB
-# 		standalone tools. Returns a string with 
-# 		all predictions.
-# 	'''
-
-# 	# Gets HLAs and respective sizes from HLA-I file
-# 	hlas, sizes = parse_hla_file(parameters, 'i')
-
-# 	peptides = list()
-# 	with open(inputfile) as inp:
-# 		for line in inp:
-# 			if not line.startswith('>'):
-# 				peptides.append(line.rstrip())
-# 	peptides = list(filter(None, peptides))
-
-# 	peptides = ''.join(['%3Epeptide' + str(num) + '%0A' + pep.rstrip() + '%0A' for num, pep in enumerate(peptides, start = 1)])
-# 	command = "curl --data \"method=" + parameters['mhcimethod'] + "&sequence_text="+peptides+"&allele=" + hlas + "&length="+ sizes +"\" http://tools-cluster-interface.iedb.org/tools_api/mhci/"
-# 	result = subprocess.run(command, shell=True, capture_output=True, text=True)
-
-# 	return result.stdout
-
-# -------------------------------------
 def run_mhc_prediction(inputfile, parameters, mhc_class):
 	'''
 		Uses the API
@@ -216,47 +191,7 @@ def run_mhc_prediction(inputfile, parameters, mhc_class):
 	result = subprocess.run(command, shell=True, capture_output=True, text=True)
 
 	return result.stdout
-# -------------------------------------
-# def run_mhcii_prediction(inputfile, parameters):
 
-# 	'''
-# 		Calls MHC-II prediction tool from the IEDB
-# 		standalone tools. Returns a string with 
-# 		all predictions.
-# 	'''
-# 	mhc_class = 'ii'
-# 	# Gets HLAs and respective sizes from HLA-I file
-# 	hlas, sizes = parse_hla_file(parameters, 'ii')
-
-# 	peptides = list()
-# 	with open(inputfile) as inp:
-# 		for line in inp:
-# 			if not line.startswith('>'):
-# 				peptides.append(line.rstrip())
-# 	peptides = list(filter(None, peptides))
-# 	peptides = ''.join(['%3Epeptide' + str(num) + '%0A' + pep.rstrip() + '%0A' for num, pep in enumerate(peptides, start = 1)])
-
-# 	command = "curl --data \"method=" + parameters['mhc'+mhc_class+'method'] + "&sequence_text="+peptides+"&allele=" + hlas + "&length="+ sizes +"\" http://tools-cluster-interface.iedb.org/tools_api/mhc"+mhc_class+"/"
-	
-# 	result = subprocess.run(command, shell=True, capture_output=True, text=True)
-
-# 	return result.stdout
-
-# -------------------------------------
-def get_tool_output(result):
-
-	'''
-		Checks if there are any errors in the IEDB tool
-		that was used. Prints stderr and exits in case of 
-		errors, else returns expected sdout.
-	'''
-	
-	if result.stderr:
-		print(result.stderr)
-		exit(0)
-	else:
-		return result.stdout
-	
 # -------------------------------------
 def run_population_coverage(inputfile, parameters, mhci_or_mhcii):
 
@@ -273,9 +208,8 @@ def run_population_coverage(inputfile, parameters, mhci_or_mhcii):
 	command = py + ' ' + method_path + ' -f ' + inputfile + ' -p ' + parameters['coveragearea'] + ' -c ' + mhci_or_mhcii + ' --plot ' + parameters['outputdirectory']
 
 	result = subprocess.run(command, shell=True, capture_output=True, text=True)
-	pop_coverage_prediction = get_tool_output(result)
-	
-	return pop_coverage_prediction
+		
+	return result.stdout
 
 # -------------------------------------
 def combine_peptides(dict_pep_hla, parameters):
@@ -307,7 +241,7 @@ def save_prediction_to_file(prediction, parameters, filename):
 def pop_coverage_mhci(input_file, parameters):
 
 	# Runs the MHC-I prediction tool specified in the parameter file
-	mhci_prediction = run_mhci_prediction(input_file, parameters)
+	mhci_prediction = run_mhc_prediction(input_file, parameters, 'I')
 	
 	# Saves MHC-I prediction to a file for future use/debuggin
 	save_prediction_to_file(mhci_prediction, parameters, 'mhc_i_prediction')
