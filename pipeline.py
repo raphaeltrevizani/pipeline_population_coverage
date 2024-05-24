@@ -167,41 +167,41 @@ def create_pop_coverage_input(pred_results, parameters, filename):
 	return pop_input_name
 
 # -------------------------------------
-def run_mhci_prediction(inputfile, parameters):
+# def run_mhci_prediction(inputfile, parameters):
 
-	'''
-		Calls MHC-I prediction tool from the IEDB
-		standalone tools. Returns a string with 
-		all predictions.
-	'''
+# 	'''
+# 		Calls MHC-I prediction tool from the IEDB
+# 		standalone tools. Returns a string with 
+# 		all predictions.
+# 	'''
 
-	# Gets HLAs and respective sizes from HLA-I file
-	hlas, sizes = parse_hla_file(parameters, 'i')
+# 	# Gets HLAs and respective sizes from HLA-I file
+# 	hlas, sizes = parse_hla_file(parameters, 'i')
 
-	peptides = list()
-	with open(inputfile) as inp:
-		for line in inp:
-			if not line.startswith('>'):
-				peptides.append(line.rstrip())
-	peptides = list(filter(None, peptides))
+# 	peptides = list()
+# 	with open(inputfile) as inp:
+# 		for line in inp:
+# 			if not line.startswith('>'):
+# 				peptides.append(line.rstrip())
+# 	peptides = list(filter(None, peptides))
 
-	peptides = ''.join(['%3Epeptide' + str(num) + '%0A' + pep.rstrip() + '%0A' for num, pep in enumerate(peptides, start = 1)])
-	command = "curl --data \"method=" + parameters['mhcimethod'] + "&sequence_text="+peptides+"&allele=" + hlas + "&length="+ sizes +"\" http://tools-cluster-interface.iedb.org/tools_api/mhci/"
-	result = subprocess.run(command, shell=True, capture_output=True, text=True)
+# 	peptides = ''.join(['%3Epeptide' + str(num) + '%0A' + pep.rstrip() + '%0A' for num, pep in enumerate(peptides, start = 1)])
+# 	command = "curl --data \"method=" + parameters['mhcimethod'] + "&sequence_text="+peptides+"&allele=" + hlas + "&length="+ sizes +"\" http://tools-cluster-interface.iedb.org/tools_api/mhci/"
+# 	result = subprocess.run(command, shell=True, capture_output=True, text=True)
 
-	return result.stdout
+# 	return result.stdout
 
 # -------------------------------------
-def run_mhcii_prediction(inputfile, parameters):
+def run_mhc_prediction(inputfile, parameters, mhc_class):
+	'''
+		Uses the API
+	'''
 
-	'''
-		Calls MHC-II prediction tool from the IEDB
-		standalone tools. Returns a string with 
-		all predictions.
-	'''
-	mhc_class = 'ii'
-	# Gets HLAs and respective sizes from HLA-I file
-	hlas, sizes = parse_hla_file(parameters, 'ii')
+	# Ensures the mhc class is not capitalized
+	mhc_class = mhc_class.lower()
+	
+	# Gets HLAs and respective sizes from HLA file
+	hlas, sizes = parse_hla_file(parameters, mhc_class)
 
 	peptides = list()
 	with open(inputfile) as inp:
@@ -216,6 +216,31 @@ def run_mhcii_prediction(inputfile, parameters):
 	result = subprocess.run(command, shell=True, capture_output=True, text=True)
 
 	return result.stdout
+# -------------------------------------
+# def run_mhcii_prediction(inputfile, parameters):
+
+# 	'''
+# 		Calls MHC-II prediction tool from the IEDB
+# 		standalone tools. Returns a string with 
+# 		all predictions.
+# 	'''
+# 	mhc_class = 'ii'
+# 	# Gets HLAs and respective sizes from HLA-I file
+# 	hlas, sizes = parse_hla_file(parameters, 'ii')
+
+# 	peptides = list()
+# 	with open(inputfile) as inp:
+# 		for line in inp:
+# 			if not line.startswith('>'):
+# 				peptides.append(line.rstrip())
+# 	peptides = list(filter(None, peptides))
+# 	peptides = ''.join(['%3Epeptide' + str(num) + '%0A' + pep.rstrip() + '%0A' for num, pep in enumerate(peptides, start = 1)])
+
+# 	command = "curl --data \"method=" + parameters['mhc'+mhc_class+'method'] + "&sequence_text="+peptides+"&allele=" + hlas + "&length="+ sizes +"\" http://tools-cluster-interface.iedb.org/tools_api/mhc"+mhc_class+"/"
+	
+# 	result = subprocess.run(command, shell=True, capture_output=True, text=True)
+
+# 	return result.stdout
 
 # -------------------------------------
 def get_tool_output(result):
@@ -321,7 +346,7 @@ def pop_coverage_mhci(input_file, parameters):
 def pop_coverage_mhcii(input_file, parameters):
 	
 	# Runs the MHC-II prediction tool specified in the parameter file
-	mhcii_prediction = run_mhcii_prediction(input_file, parameters)
+	mhcii_prediction = run_mhc_prediction(input_file, parameters, 'II')
 
 	# Saves MHC-I prediction to a file for future use/debuggin
 	save_prediction_to_file(mhcii_prediction, parameters, 'mhc_ii_prediction')
