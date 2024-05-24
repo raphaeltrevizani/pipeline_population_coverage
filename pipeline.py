@@ -251,21 +251,21 @@ def pop_coverage_mhc(input_file, parameters, mhc_class):
 	prediction = run_mhc_prediction(input_file, parameters, mhc_class)
 	
 	# Saves MHC-I prediction to a file for future use/debugging
-	save_prediction_to_file(prediction, parameters, 'MHC_' + mhc_class + '_prediction')
+	save_prediction_to_file(prediction, parameters, 'mhc_' + mhc_class.lower() + '_prediction')
 
 	# Isolate peptides and their respective binding alleles
 	pred_results = get_alleles_and_binders(prediction, parameters, mhc_class)
 	
-	# Creates the pop coverage input for each peptide individually
-	inputfile = create_pop_coverage_input(pred_results, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.split.input')
+	# # Creates the pop coverage input for each peptide individually
+	# inputfile = create_pop_coverage_input(pred_results, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.split.input')
 	
-	# Run the population coverage tool for the peptides split in the sizes of parameters.md
-	coverage_separated_seqs = run_population_coverage(inputfile, parameters, mhc_class)
+	# # Run the population coverage tool for the peptides split in the sizes of parameters.md
+	# coverage_separated_seqs = run_population_coverage(inputfile, parameters, mhc_class)
 
-	# Changes the default figure name to reflect the 'split' nature of the peptides
-	png_old = join(parameters['outputdirectory'], 'popcov_world_' + mhc_class.lower() + '.png')
-	png_new = join(parameters['outputdirectory'], 'popcov_world_' + mhc_class + '_split.png')
-	rename(png_old, png_new)
+	# # Changes the default figure name to reflect the 'split' nature of the peptides
+	# png_old = join(parameters['outputdirectory'], 'popcov_world_' + mhc_class.lower() + '.png')
+	# png_new = join(parameters['outputdirectory'], 'popcov_world_' + mhc_class + '_split.png')
+	# rename(png_old, png_new)
 	
 	# Run the population coverage tool for the peptides in their original sizes
 	pred_results_combined = combine_peptides(pred_results, parameters)
@@ -281,7 +281,8 @@ def pop_coverage_mhc(input_file, parameters, mhc_class):
 	png_new = join(parameters['outputdirectory'], 'popcov_world_' + mhc_class + '_original.png')
 	rename(png_old, png_new)
 
-	return coverage_separated_seqs, coverage_all_seqs
+	# return coverage_separated_seqs, coverage_all_seqs
+	return coverage_all_seqs
 
 # -------------------------------------
 def pop_coverage_mhcii_single_region(parameters):
@@ -402,17 +403,17 @@ def run(input_file, parameters_file):
 	
 	# Runs pipeline for MHC-I; saves to file
 	# pop_mhci_separated, pop_mhci_full = pop_coverage_mhci(separated_peptides, parameters)
-	pop_mhci_separated, pop_mhci_full = pop_coverage_mhc(separated_peptides, parameters, 'I')
-	with open(join(outputdir,'mhc_i_pop_coverage_split.txt'), 'w') as out:
-		out.write(pop_mhci_separated)
+	pop_mhci_full = pop_coverage_mhc(separated_peptides, parameters, 'I')
+	# with open(join(outputdir,'mhc_i_pop_coverage_split.txt'), 'w') as out:
+	# 	out.write(pop_mhci_separated)
 	with open(join(outputdir,'mhc_i_pop_coverage_original.txt'), 'w') as out:
 		out.write(pop_mhci_full)
 
 	# Runs pipeline for MHC-II; saves to file
 	# pop_mhcii_separated, pop_mhcii_full = pop_coverage_mhcii(separated_peptides, parameters)
-	pop_mhcii_separated, pop_mhcii_full = pop_coverage_mhc(separated_peptides, parameters, 'II')
-	with open(join(outputdir,'mhc_ii_pop_coverage_split.txt'), 'w') as out:
-		out.write(pop_mhcii_separated)
+	pop_mhcii_full = pop_coverage_mhc(separated_peptides, parameters, 'II')
+	# with open(join(outputdir,'mhc_ii_pop_coverage_split.txt'), 'w') as out:
+	# 	out.write(pop_mhcii_separated)
 	with open(join(outputdir,'mhc_ii_pop_coverage_original.txt'), 'w') as out:
 		out.write(pop_mhcii_full)
 
