@@ -199,7 +199,7 @@ def run_mhcii_prediction(inputfile, parameters):
 		standalone tools. Returns a string with 
 		all predictions.
 	'''
-
+	mhc_class = 'ii'
 	# Gets HLAs and respective sizes from HLA-I file
 	hlas, sizes = parse_hla_file(parameters, 'ii')
 
@@ -211,7 +211,7 @@ def run_mhcii_prediction(inputfile, parameters):
 	peptides = list(filter(None, peptides))
 	peptides = ''.join(['%3Epeptide' + str(num) + '%0A' + pep.rstrip() + '%0A' for num, pep in enumerate(peptides, start = 1)])
 
-	command = "curl --data \"method=" + parameters['mhciimethod'] + "&sequence_text="+peptides+"&allele=" + hlas + "&length="+ sizes +"\" http://tools-cluster-interface.iedb.org/tools_api/mhcii/"
+	command = "curl --data \"method=" + parameters['mhc'+mhc_class+'method'] + "&sequence_text="+peptides+"&allele=" + hlas + "&length="+ sizes +"\" http://tools-cluster-interface.iedb.org/tools_api/mhc"+mhc_class+"/"
 	
 	result = subprocess.run(command, shell=True, capture_output=True, text=True)
 
