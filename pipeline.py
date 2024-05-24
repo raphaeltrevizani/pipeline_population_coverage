@@ -100,7 +100,7 @@ def parse_hla_file(parameters, mhc_class):
 	else:
 		print(f'Unknown MHC class: {mhc_class}.')
 # -------------------------------------
-def get_alleles_and_binders(prediction, parameters, mhci_or_mhcii):
+def get_alleles_and_binders(prediction, parameters, mhc_class):
 
 	'''
 		Isolates from IEDB prediction output 
@@ -108,13 +108,16 @@ def get_alleles_and_binders(prediction, parameters, mhci_or_mhcii):
 		that are above the binding threshold
 	'''
 
+	mhc_class = mhc_class.lower()
+
 	# Decides whether it is MHC-I or MHC-II
-	if mhci_or_mhcii == 'mhci':
+	if mhc_class == 'i':
 		peptide_column = 5
-		cutoff = float(parameters['mhcithreshold'])
-	if mhci_or_mhcii == 'mhcii':
+		
+	if mhc_class == 'ii':
 		peptide_column = 6
-		cutoff = float(parameters['mhciithreshold'])
+	
+	cutoff = float(parameters['mhc' + mhc_class + 'threshold'])
 	
 
 	# Splits str(prediction) into a list of rows; ignores header; filters empty
@@ -132,7 +135,7 @@ def get_alleles_and_binders(prediction, parameters, mhci_or_mhcii):
 		score = float(fields[-2])
 
 		# Remove alpha chain in heterodimers of MHC-II
-		if mhci_or_mhcii == 'mhcii' and '/' in allele:
+		if mhc_class == 'ii' and '/' in allele:
 			allele = 'HLA-' + allele.split('/')[1]
 
 		# Selects lines below the binding threshold
@@ -169,7 +172,7 @@ def create_pop_coverage_input(pred_results, parameters, filename):
 # -------------------------------------
 def run_mhc_prediction(inputfile, parameters, mhc_class):
 	'''
-		Uses the API
+		Uses the API to predict binders
 	'''
 
 	# Ensures the mhc class is not capitalized
@@ -193,7 +196,7 @@ def run_mhc_prediction(inputfile, parameters, mhc_class):
 	return result.stdout
 
 # -------------------------------------
-def run_population_coverage(inputfile, parameters, mhci_or_mhcii):
+def run_population_coverage(inputfile, parameters, mhc_class):
 
 	'''
 		Calls the IEDB population coverage tool 
@@ -202,10 +205,12 @@ def run_population_coverage(inputfile, parameters, mhci_or_mhcii):
 		Args: mhci_prediction: return value of run_mhci_prediction()
 	'''
 
+	mhc_class = mhc_class.upper()
+
 	method_path = join(parameters['populationcoveragedirectory'], 'calculate_population_coverage.py')
 
 	py = parameters['pythonpath']
-	command = py + ' ' + method_path + ' -f ' + inputfile + ' -p ' + parameters['coveragearea'] + ' -c ' + mhci_or_mhcii + ' --plot ' + parameters['outputdirectory']
+	command = py + ' ' + method_path + ' -f ' + inputfile + ' -p ' + parameters['coveragearea'] + ' -c ' + mhc_class + ' --plot ' + parameters['outputdirectory']
 
 	result = subprocess.run(command, shell=True, capture_output=True, text=True)
 		
@@ -237,83 +242,46 @@ def save_prediction_to_file(prediction, parameters, filename):
 	with open(join(parameters['temporarydirectory'], filename), 'w') as out:
 		out.write(prediction)
 	return
+
 # -------------------------------------
-def pop_coverage_mhci(input_file, parameters):
+def pop_coverage_mhc(input_file, parameters, mhc_class):
+
 
 	# Runs the MHC-I prediction tool specified in the parameter file
-	mhci_prediction = run_mhc_prediction(input_file, parameters, 'I')
+	prediction = run_mhc_prediction(input_file, parameters, mhc_class)
 	
-	# Saves MHC-I prediction to a file for future use/debuggin
-	save_prediction_to_file(mhci_prediction, parameters, 'mhc_i_prediction')
+	# Saves MHC-I prediction to a file for future use/debugging
+	save_prediction_to_file(prediction, parameters, 'MHC_' + mhc_class + '_prediction')
 
 	# Isolate peptides and their respective binding alleles
-	pred_results = get_alleles_and_binders(mhci_prediction, parameters, mhci_or_mhcii='mhci')
+	pred_results = get_alleles_and_binders(prediction, parameters, mhc_class)
 	
 	# Creates the pop coverage input for each peptide individually
-	inputfile = create_pop_coverage_input(pred_results, parameters, 'pop_coverage_mhci.split.input')
+	inputfile = create_pop_coverage_input(pred_results, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.split.input')
 	
 	# Run the population coverage tool for the peptides split in the sizes of parameters.md
-	pop_mhci_separated = run_population_coverage(inputfile, parameters, 'I')
+	coverage_separated_seqs = run_population_coverage(inputfile, parameters, mhc_class)
 
 	# Changes the default figure name to reflect the 'split' nature of the peptides
-	png_old = join(parameters['outputdirectory'], 'popcov_world_i.png')
-	png_new = join(parameters['outputdirectory'], 'popcov_world_i_split.png')
+	png_old = join(parameters['outputdirectory'], 'popcov_world_' + mhc_class.lower() + '.png')
+	png_new = join(parameters['outputdirectory'], 'popcov_world_' + mhc_class + '_split.png')
 	rename(png_old, png_new)
 	
 	# Run the population coverage tool for the peptides in their original sizes
 	pred_results_combined = combine_peptides(pred_results, parameters)
 
 	# Creates the pop coverage input for each peptide individually
-	inputfile = create_pop_coverage_input(pred_results_combined, parameters, 'pop_coverage_mhci.original.input')
+	inputfile = create_pop_coverage_input(pred_results_combined, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.original.input')
 	
 	# Run population coverage for the original sequences
-	pop_mhci_full = run_population_coverage(inputfile, parameters, 'I')
+	coverage_all_seqs = run_population_coverage(inputfile, parameters, mhc_class)
 
 	# Changes the default figure name to reflect the 'original' nature of the peptides
-	png_old = join(parameters['outputdirectory'], 'popcov_world_i.png')
-	png_new = join(parameters['outputdirectory'], 'popcov_world_i_original.png')
+	png_old = join(parameters['outputdirectory'], 'popcov_world_' + mhc_class.lower() + '.png')
+	png_new = join(parameters['outputdirectory'], 'popcov_world_' + mhc_class + '_original.png')
 	rename(png_old, png_new)
 
-	return pop_mhci_separated, pop_mhci_full
-
-# -------------------------------------
-def pop_coverage_mhcii(input_file, parameters):
-	
-	# Runs the MHC-II prediction tool specified in the parameter file
-	mhcii_prediction = run_mhc_prediction(input_file, parameters, 'II')
-
-	# Saves MHC-I prediction to a file for future use/debuggin
-	save_prediction_to_file(mhcii_prediction, parameters, 'mhc_ii_prediction')
-
-	# Isolate peptides and their respective binding alleles
-	pred_results = get_alleles_and_binders(mhcii_prediction, parameters, mhci_or_mhcii='mhcii')
-
-	# Outputs to file
-	inputfile = create_pop_coverage_input(pred_results, parameters, 'pop_coverage_mhcii.split.input')
-
-	# Run the population coverage tool in the inputfile
-	pop_mhcii = run_population_coverage(inputfile, parameters, 'II')
-
-	# Changes the default figure name to reflect the 'split' nature of the peptides
-	png_old = join(parameters['outputdirectory'], 'popcov_world_ii.png')
-	png_new = join(parameters['outputdirectory'], 'popcov_world_ii_split.png')
-	rename(png_old, png_new)
-	
-	# Run the population coverage tool for the peptides in their original sizes
-	pred_results_combined = combine_peptides(pred_results, parameters)
-
-	# Creates the pop coverage input for each peptide individually
-	inputfile = create_pop_coverage_input(pred_results_combined, parameters, 'pop_coverage_mhcii.original.input')
-	
-	# Run population coverage for the original sequences
-	pop_mhcii_full = run_population_coverage(inputfile, parameters, 'II')
-
-	# Changes the default figure name to reflect the 'original' nature of the peptides
-	png_old = join(parameters['outputdirectory'], 'popcov_world_ii.png')
-	png_new = join(parameters['outputdirectory'], 'popcov_world_ii_original.png')
-	rename(png_old, png_new)
-
-	return pop_mhcii, pop_mhcii_full
+	return coverage_separated_seqs, coverage_all_seqs
 
 # -------------------------------------
 def pop_coverage_mhcii_single_region(parameters):
@@ -330,7 +298,7 @@ def pop_coverage_mhcii_single_region(parameters):
 		predictions = '\n'.join(predfile.readlines())
 
 	# Create the pop coverage input file
-	pred_results = get_alleles_and_binders(predictions, parameters, mhci_or_mhcii='mhcii')	
+	pred_results = get_alleles_and_binders(predictions, parameters, 'ii')	
 	pred_results = combine_peptides(pred_results, parameters)
 
 	individual_cover = dict()
@@ -367,7 +335,7 @@ def pop_coverage_mhci_single_region(parameters):
 		predictions = '\n'.join(predfile.readlines())
 
 	# Create the pop coverage input file
-	pred_results = get_alleles_and_binders(predictions, parameters, mhci_or_mhcii='mhci')	
+	pred_results = get_alleles_and_binders(predictions, parameters, 'i')	
 	pred_results = combine_peptides(pred_results, parameters)
 
 	individual_cover = dict()
@@ -429,18 +397,20 @@ def run(input_file, parameters_file):
 	outputdir = parameters['outputdirectory']
 	makedirs(outputdir, exist_ok=True)
 	
-	# TODO Attempt to detect file type
+	# TODO remove fasta file; using the API from now on
 	separated_peptides, joined_peptides = convert_csv_to_fasta(input_file, parameters)
 	
 	# Runs pipeline for MHC-I; saves to file
-	pop_mhci_separated, pop_mhci_full = pop_coverage_mhci(separated_peptides, parameters)
+	# pop_mhci_separated, pop_mhci_full = pop_coverage_mhci(separated_peptides, parameters)
+	pop_mhci_separated, pop_mhci_full = pop_coverage_mhc(separated_peptides, parameters, 'I')
 	with open(join(outputdir,'mhc_i_pop_coverage_split.txt'), 'w') as out:
 		out.write(pop_mhci_separated)
 	with open(join(outputdir,'mhc_i_pop_coverage_original.txt'), 'w') as out:
 		out.write(pop_mhci_full)
 
 	# Runs pipeline for MHC-II; saves to file
-	pop_mhcii_separated, pop_mhcii_full = pop_coverage_mhcii(separated_peptides, parameters)
+	# pop_mhcii_separated, pop_mhcii_full = pop_coverage_mhcii(separated_peptides, parameters)
+	pop_mhcii_separated, pop_mhcii_full = pop_coverage_mhc(separated_peptides, parameters, 'II')
 	with open(join(outputdir,'mhc_ii_pop_coverage_split.txt'), 'w') as out:
 		out.write(pop_mhcii_separated)
 	with open(join(outputdir,'mhc_ii_pop_coverage_original.txt'), 'w') as out:
