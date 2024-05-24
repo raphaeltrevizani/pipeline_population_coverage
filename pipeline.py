@@ -215,12 +215,24 @@ def run_mhcii_prediction(inputfile, parameters):
 
 	# Run the IEDB prediction tool
 	method_path = join(mhcii_dir, 'mhc_II_binding.py')
-	command = py + ' ' + method_path + ' ' + parameters['mhciimethod'] + ' ' + hlas + ' ' + inputfile + ' ' + sizes
+	# command = py + ' ' + method_path + ' ' + parameters['mhciimethod'] + ' ' + hlas + ' ' + inputfile + ' ' + sizes
+
+	peptides = list()
+	with open(inputfile) as inp:
+		for line in inp:
+			if not line.startswith('>'):
+				peptides.append(line.rstrip())
+	peptides = list(filter(None, peptides))
+	peptides = ''.join(['%3Epeptide' + str(num) + '%0A' + pep.rstrip() + '%0A' for num, pep in enumerate(peptides, start = 1)])
+
+	command = "curl --data \"method=" + parameters['mhciimethod'] + "&sequence_text="+peptides+"&allele=" + hlas + "&length="+ sizes +"\" http://tools-cluster-interface.iedb.org/tools_api/mhcii/"
+	
 	result = subprocess.run(command, shell=True, capture_output=True, text=True)
 
-	mhcii_prediction = get_tool_output(result)
-	
-	return mhcii_prediction
+	# mhcii_prediction = get_tool_output(result)
+	# print(result.stdout)	
+	# exit(0)
+	return result.stdout
 
 # -------------------------------------
 def get_tool_output(result):
