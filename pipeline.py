@@ -92,6 +92,14 @@ def parse_hla_ii_file(parameters):
 	return hla_list, mhcii_sizes
 
 # -------------------------------------
+def parse_hla_file(parameters, mhc_class):
+	if mhc_class.lower() == 'i':
+		return parse_hla_i_file(parameters)
+	elif mhc_class.lower() == 'ii':
+		return parse_hla_ii_file(parameters)
+	else:
+		print(f'Unknown MHC class: {mhc_class}.')
+# -------------------------------------
 def get_alleles_and_binders(prediction, parameters, mhci_or_mhcii):
 
 	'''
@@ -168,7 +176,7 @@ def run_mhci_prediction(inputfile, parameters):
 	'''
 
 	# Gets HLAs and respective sizes from HLA-I file
-	hlas, sizes = parse_hla_i_file(parameters)
+	hlas, sizes = parse_hla_file(parameters, 'i')
 
 	peptides = list()
 	with open(inputfile) as inp:
@@ -193,7 +201,7 @@ def run_mhcii_prediction(inputfile, parameters):
 	'''
 
 	# Gets HLAs and respective sizes from HLA-I file
-	hlas, sizes = parse_hla_ii_file(parameters)
+	hlas, sizes = parse_hla_file(parameters, 'ii')
 
 	peptides = list()
 	with open(inputfile) as inp:
