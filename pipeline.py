@@ -265,8 +265,8 @@ def pop_coverage_mhc(input_file, parameters, mhc_class):
 	
 	# TODO: run popcoverage tool for each sequence separately here and then do it for the whole thing 
 	# ==>
-	individual_coverage_mhc_i = pop_coverage_single_region(parameters, mhc_class='I')
-	individual_coverage_mhc_ii = pop_coverage_single_region(parameters, mhc_class='II')
+	# individual_coverage_mhc_i = pop_coverage_single_region(parameters, mhc_class='I')
+	# individual_coverage_mhc_ii = pop_coverage_single_region(parameters, mhc_class='II')
 	
 
 	# Run population coverage for the original sequences
