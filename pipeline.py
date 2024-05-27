@@ -231,20 +231,11 @@ def combine_peptides(joined_data, dict_pep_hla, parameters):
 	return combined_pep_hla
 
 # -------------------------------------
-def save_prediction_to_file(prediction, parameters, filename):
-	with open(join(parameters['temporarydirectory'], filename), 'w') as out:
-		out.write(prediction)
-	return
-
-# -------------------------------------
 def pop_coverage_mhc(input_file, parameters, mhc_class):
 
 	# Runs the MHC-I prediction tool specified in the parameter file
 	prediction = run_mhc_prediction(input_file, parameters, mhc_class)
 	
-	# Saves MHC-I prediction to a file for future use/debugging
-	save_prediction_to_file(prediction, parameters, 'mhc_' + mhc_class.lower() + '_prediction')
-
 	# Isolate peptides and their respective binding alleles
 	pred_results = get_alleles_and_binders(prediction, parameters, mhc_class)
 		
@@ -257,12 +248,6 @@ def pop_coverage_mhc(input_file, parameters, mhc_class):
 	# Run population coverage for the original sequences
 	coverage_all_seqs = run_population_coverage(inputfile, parameters, mhc_class)
 
-	# # Changes the default figure name to reflect the 'original' nature of the peptides
-	# png_old = join(parameters['outputdirectory'], 'popcov_world_' + mhc_class.lower() + '.png')
-	# png_new = join(parameters['outputdirectory'], 'popcov_world_' + mhc_class + '_original.png')
-	# rename(png_old, png_new)
-
-	# return coverage_separated_seqs, coverage_all_seqs
 	return coverage_all_seqs
 
 # -------------------------------------
@@ -272,7 +257,7 @@ def pop_coverage_single_region(joined_data, parameters, mhc_class, predictions):
 
 	# Create the pop coverage input file
 	pred_results = get_alleles_and_binders(predictions, parameters, mhc_class.lower())	
-	# print(sequences)
+
 	pred_results = combine_peptides(joined_data, pred_results, parameters)
 
 	individual_cover = dict()
@@ -329,17 +314,12 @@ def run(input_file, parameters, mhc_class):
 
 	# Creates tmp dir and output dir
 	makedirs(parameters['temporarydirectory'], exist_ok=True)
-	outputdir = parameters['outputdirectory']
-	makedirs(outputdir, exist_ok=True)
 	
 	separated_peptides, joined_peptides = parse_csv_input(input_file, parameters)
 
 	# Runs the MHC-I prediction tool specified in the parameter file
 	prediction = run_mhc_prediction(separated_peptides, parameters, mhc_class)
 	
-	# Saves MHC-I prediction to a file for future use/debugging
-	save_prediction_to_file(prediction, parameters, 'mhc_' + mhc_class.lower() + '_prediction')
-
 	# Isolate peptides and their respective binding alleles
 	pred_results = get_alleles_and_binders(prediction, parameters, mhc_class)
 
@@ -353,7 +333,7 @@ def run(input_file, parameters, mhc_class):
 	full_coverage_output = run_population_coverage(inputfile, parameters, mhc_class)
 	full_coverage = get_overall_coverage(full_coverage_output)
 
-	# Run the pop coverage tool for each MHC-I prediction separately
+	# Run the pop coverage tool for each peptide separately
 	coverage_dict = pop_coverage_single_region(joined_peptides, parameters, mhc_class, prediction)
 	coverage_dict['all'] = full_coverage
 	return coverage_dict
@@ -479,6 +459,8 @@ if __name__ == '__main__':
 	args = parse_arguments()
 	
 	parameters = parse_parameters(args.p)
+	outputdir = parameters['outputdirectory']
+	makedirs(outputdir, exist_ok=True)
 	
 	coverage_mhci  = run(input_file = args.i, parameters = parameters, mhc_class = 'I')
 	coverage_mhcii = run(input_file = args.i, parameters = parameters, mhc_class = 'II')

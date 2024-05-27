@@ -1,8 +1,5 @@
 
 # Adjust these accordingly
-MHC-I predictor directory	= /home/trevizani/prog/mhc_i
-MHC-II predictor directory	= /home/trevizani/prog/mhc_ii
-Population coverage directory = /home/trevizani/prog/population_coverage
 output directory = test/results
 
 # Set parameters 
@@ -15,8 +12,8 @@ MHC-I threshold = 500
 MHC-II threshold = 500
 
 # More advanced options
+Population coverage directory = population_coverage_standalone
 HLA-I file = data/hla_ref_set.class_i.txt
 HLA-II file = data/hla_ref_set.class_ii.txt
 temporary directory = data/temp
 python path=python
-remove temporary directory = false
