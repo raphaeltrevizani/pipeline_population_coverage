@@ -92,6 +92,12 @@ def parse_hla_ii_file(parameters):
 
 # -------------------------------------
 def parse_hla_file(parameters, mhc_class):
+
+	'''
+		Parses IEDB reference HLA file for 
+		MHC-I or MHC-II
+	'''
+
 	if mhc_class.lower() == 'i':
 		return parse_hla_i_file(parameters)
 	elif mhc_class.lower() == 'ii':
@@ -171,7 +177,8 @@ def create_pop_coverage_input(pred_results, parameters, filename):
 # -------------------------------------
 def run_mhc_prediction(inputdata, parameters, mhc_class):
 	'''
-		Uses the API to predict binders
+		Uses the API to predict binders of arg:mhc_class for each 
+		arg:inputdata
 	'''
 
 	# Ensures the mhc class is not capitalized
@@ -214,7 +221,7 @@ def run_population_coverage(inputfile, parameters, mhc_class):
 	return result.stdout
 
 # -------------------------------------
-def combine_peptides(joined_data, dict_pep_hla, parameters):
+def combine_peptides(joined_data, dict_pep_hla):
 
 	# Empty dictionary where original sequences are keys that maps to a set of HLAs
 	sequences = [item[2] for item in joined_data]
@@ -231,26 +238,6 @@ def combine_peptides(joined_data, dict_pep_hla, parameters):
 	return combined_pep_hla
 
 # -------------------------------------
-def pop_coverage_mhc(input_file, parameters, mhc_class):
-
-	# Runs the MHC-I prediction tool specified in the parameter file
-	prediction = run_mhc_prediction(input_file, parameters, mhc_class)
-	
-	# Isolate peptides and their respective binding alleles
-	pred_results = get_alleles_and_binders(prediction, parameters, mhc_class)
-		
-	# Combines the overlapping peptides and merges HLA sets
-	pred_results_combined = combine_peptides(pred_results, parameters)
-
-	# Creates the pop coverage input for each peptide individually
-	inputfile = create_pop_coverage_input(pred_results_combined, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.original.input')
-	
-	# Run population coverage for the original sequences
-	coverage_all_seqs = run_population_coverage(inputfile, parameters, mhc_class)
-
-	return coverage_all_seqs
-
-# -------------------------------------
 def pop_coverage_single_region(joined_data, parameters, mhc_class, predictions):
 
 	sequences = [item[2] for item in joined_data]
@@ -258,7 +245,7 @@ def pop_coverage_single_region(joined_data, parameters, mhc_class, predictions):
 	# Create the pop coverage input file
 	pred_results = get_alleles_and_binders(predictions, parameters, mhc_class.lower())	
 
-	pred_results = combine_peptides(joined_data, pred_results, parameters)
+	pred_results = combine_peptides(joined_data, pred_results)
 
 	individual_cover = dict()
 	
@@ -316,7 +303,7 @@ def run(input_file, parameters, mhc_class):
 	makedirs(parameters['temporarydirectory'], exist_ok=True)
 	
 	# Gets the peptides from the csv input file
-	separated_peptides, joined_peptides = parse_csv_input(input_file, parameters)
+	separated_peptides, joined_peptides = parse_csv_input(input_file)
 
 	# Runs the MHC-I prediction tool specified in the parameter file
 	prediction = run_mhc_prediction(separated_peptides, parameters, mhc_class)
@@ -325,7 +312,7 @@ def run(input_file, parameters, mhc_class):
 	pred_results = get_alleles_and_binders(prediction, parameters, mhc_class)
 
 	# Merges HLA sets according to overlapping peptides
-	pred_results_combined = combine_peptides(joined_peptides, pred_results, parameters)
+	pred_results_combined = combine_peptides(joined_peptides, pred_results)
 
 	# Creates the pop coverage input for each peptide individually
 	inputfile = create_pop_coverage_input(pred_results_combined, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.original.input')
@@ -420,7 +407,7 @@ def merge_items(data):
 	return [merge_sequences(item) for item in grouped_data]
 
 # -------------------------------------
-def parse_csv_input(csv_file, parameters):
+def parse_csv_input(csv_file):
 
 	'''
 		Parse the .csv input file. 
