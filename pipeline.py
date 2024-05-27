@@ -255,24 +255,20 @@ def pop_coverage_mhc(input_file, parameters, mhc_class):
 
 	# Isolate peptides and their respective binding alleles
 	pred_results = get_alleles_and_binders(prediction, parameters, mhc_class)
-	
-	# # Creates the pop coverage input for each peptide individually
-	# inputfile = create_pop_coverage_input(pred_results, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.split.input')
-	
-	# # Run the population coverage tool for the peptides split in the sizes of parameters.md
-	# coverage_separated_seqs = run_population_coverage(inputfile, parameters, mhc_class)
-
-	# # Changes the default figure name to reflect the 'split' nature of the peptides
-	# png_old = join(parameters['outputdirectory'], 'popcov_world_' + mhc_class.lower() + '.png')
-	# png_new = join(parameters['outputdirectory'], 'popcov_world_' + mhc_class + '_split.png')
-	# rename(png_old, png_new)
-	
-	# Run the population coverage tool for the peptides in their original sizes
+		
+	# Combines the overlapping peptides and merges HLA sets
 	pred_results_combined = combine_peptides(pred_results, parameters)
 
 	# Creates the pop coverage input for each peptide individually
 	inputfile = create_pop_coverage_input(pred_results_combined, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.original.input')
 	
+	
+	# TODO: run popcoverage tool for each sequence separately here and then do it for the whole thing 
+	# ==>
+	individual_coverage_mhc_i = pop_coverage_single_region(parameters, mhc_class='I')
+	individual_coverage_mhc_ii = pop_coverage_single_region(parameters, mhc_class='II')
+	
+
 	# Run population coverage for the original sequences
 	coverage_all_seqs = run_population_coverage(inputfile, parameters, mhc_class)
 
@@ -283,6 +279,45 @@ def pop_coverage_mhc(input_file, parameters, mhc_class):
 
 	# return coverage_separated_seqs, coverage_all_seqs
 	return coverage_all_seqs
+
+# -------------------------------------
+def pop_coverage_single_region(parameters, mhc_class):
+
+	tmpdir = parameters['temporarydirectory']
+
+	# Parse the merged fasta file TODO: isolate this into a sequence (used in more places)
+	merged_fasta_file = join(tmpdir, 'merged.fasta.txt')
+	with open(merged_fasta_file) as fasta:
+		sequences = [line.rstrip() for line in fasta if not line.startswith('>')]
+
+	
+	# Parse the mhci input file
+	with open(join(tmpdir, 'mhc_' + mhc_class.lower() + '_prediction')) as predfile:
+		predictions = '\n'.join(predfile.readlines())
+
+	# Create the pop coverage input file
+	pred_results = get_alleles_and_binders(predictions, parameters, mhc_class.lower())	
+	pred_results = combine_peptides(pred_results, parameters)
+
+	individual_cover = dict()
+	for num, seq in enumerate(sequences, start=1):
+
+		# Selects the prediction of one sequence
+		pred = pred_results[seq]
+
+		# Creates the inputfile for the pop coverage tool
+		inputfile = create_pop_coverage_input({seq:pred}, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.' + str(num) + '.input')
+		
+		# Run the pop coverage input file 
+		pop_seq = run_population_coverage(inputfile, parameters, mhc_class.upper())
+
+		# Store the sequence and coverage in a dict
+		coverage = get_overall_coverage(pop_seq)
+		individual_cover[str(num) + '-' + seq] = coverage
+
+	return individual_cover
+
+
 
 # -------------------------------------
 def pop_coverage_mhcii_single_region(parameters):
@@ -400,7 +435,7 @@ def run(input_file, parameters_file):
 	
 	# TODO remove fasta file; using the API from now on
 	separated_peptides, joined_peptides = convert_csv_to_fasta(input_file, parameters)
-	
+
 	# Runs pipeline for MHC-I; saves to file
 	# pop_mhci_separated, pop_mhci_full = pop_coverage_mhci(separated_peptides, parameters)
 	pop_mhci_full = pop_coverage_mhc(separated_peptides, parameters, 'I')
