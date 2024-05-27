@@ -3,7 +3,6 @@
 import subprocess
 from os.path import join
 from os import makedirs, rename
-# from shutil import rmtree
 
 # -------------------------------------	
 def parse_parameters(inputfile):
@@ -183,13 +182,8 @@ def run_mhc_prediction(inputdata, parameters, mhc_class):
 	
 	# Get peptides sequences from input data
 	peptides = [item[2] for item in inputdata]
-	# exit(0)
-	# peptides = list()
-	# with open(inputfile) as inp:
-	# 	for line in inp:
-	# 		if not line.startswith('>'):
-	# 			peptides.append(line.rstrip())
-	# peptides = list(filter(None, peptides))
+
+	# Add flanking characters needed by the API query
 	peptides = ''.join(['%3Epeptide' + str(num) + '%0A' + pep.rstrip() + '%0A' for num, pep in enumerate(peptides, start = 1)])
 
 	command = "curl --data \"method=" + parameters['mhc'+mhc_class+'method'] + "&sequence_text="+peptides+"&allele=" + hlas + "&length="+ sizes +"\" http://tools-cluster-interface.iedb.org/tools_api/mhc"+mhc_class+"/"
@@ -222,11 +216,6 @@ def run_population_coverage(inputfile, parameters, mhc_class):
 # -------------------------------------
 def combine_peptides(joined_data, dict_pep_hla, parameters):
 
-	# # Parse sequences from merged fasta file:
-	# merged_fasta_file = join(parameters['temporarydirectory'], 'merged.fasta.txt')
-	# with open(merged_fasta_file) as fasta:
-	# 	sequences = [line.rstrip() for line in fasta if not line.startswith('>')]
-	
 	# Empty dictionary where original sequences are keys that maps to a set of HLAs
 	sequences = [item[2] for item in joined_data]
 	combined_pep_hla = {seq:list() for seq in sequences}
@@ -250,7 +239,6 @@ def save_prediction_to_file(prediction, parameters, filename):
 # -------------------------------------
 def pop_coverage_mhc(input_file, parameters, mhc_class):
 
-
 	# Runs the MHC-I prediction tool specified in the parameter file
 	prediction = run_mhc_prediction(input_file, parameters, mhc_class)
 	
@@ -266,13 +254,6 @@ def pop_coverage_mhc(input_file, parameters, mhc_class):
 	# Creates the pop coverage input for each peptide individually
 	inputfile = create_pop_coverage_input(pred_results_combined, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.original.input')
 	
-	
-	# TODO: run popcoverage tool for each sequence separately here and then do it for the whole thing 
-	# ==>
-	# individual_coverage_mhc_i = pop_coverage_single_region(parameters, mhc_class='I')
-	# individual_coverage_mhc_ii = pop_coverage_single_region(parameters, mhc_class='II')
-	
-
 	# Run population coverage for the original sequences
 	coverage_all_seqs = run_population_coverage(inputfile, parameters, mhc_class)
 
@@ -287,20 +268,7 @@ def pop_coverage_mhc(input_file, parameters, mhc_class):
 # -------------------------------------
 def pop_coverage_single_region(joined_data, parameters, mhc_class, predictions):
 
-	tmpdir = parameters['temporarydirectory']
-
-	# Parse the merged fasta file TODO: isolate this into a sequence (used in more places)
-	# merged_fasta_file = join(tmpdir, 'merged.fasta.txt')
-	# with open(merged_fasta_file) as fasta:
-	# 	sequences = [line.rstrip() for line in fasta if not line.startswith('>')]
-
-	# print(sequences)
 	sequences = [item[2] for item in joined_data]
-	# print(sequences)	
-	# exit(0)
-	# # Parse the mhci input file
-	# with open(join(tmpdir, 'mhc_' + mhc_class.lower() + '_prediction')) as predfile:
-	# 	predictions = '\n'.join(predfile.readlines())
 
 	# Create the pop coverage input file
 	pred_results = get_alleles_and_binders(predictions, parameters, mhc_class.lower())	
@@ -360,7 +328,6 @@ def run(input_file, parameters, mhc_class):
 	'''
 
 	# Parses parameter file, adds the input file as a parameter
-	# parameters = parse_parameters(parameters_file)
 	parameters['inputfile'] = input_file
 
 	# Creates tmp dir and output dir
@@ -368,14 +335,8 @@ def run(input_file, parameters, mhc_class):
 	outputdir = parameters['outputdirectory']
 	makedirs(outputdir, exist_ok=True)
 	
-	# TODO remove fasta file; using the API from now on
 	separated_peptides, joined_peptides = parse_csv_input(input_file, parameters)
 
-	# Runs pipeline for MHC-I; saves to file
-	# pop_mhci_separated, pop_mhci_full = pop_coverage_mhci(separated_peptides, parameters)
-	
-	# pop_mhci_full = pop_coverage_mhc(separated_peptides, parameters, mhc_class)
-	
 	# Runs the MHC-I prediction tool specified in the parameter file
 	prediction = run_mhc_prediction(separated_peptides, parameters, mhc_class)
 	
@@ -399,47 +360,7 @@ def run(input_file, parameters, mhc_class):
 	coverage_dict = pop_coverage_single_region(joined_peptides, parameters, mhc_class, prediction)
 	coverage_dict['all'] = full_coverage
 	return coverage_dict
-	exit(0)
-	# print(single_region_dict)
-	# exit(0)
 
-
-	# with open(join(outputdir,'mhc_i_pop_coverage_split.txt'), 'w') as out:
-	# 	out.write(pop_mhci_separated)
-	with open(join(outputdir,'mhc_i_pop_coverage_original.txt'), 'w') as out:
-		out.write(pop_mhci_full)
-
-	# Runs pipeline for MHC-II; saves to file
-	# pop_mhcii_separated, pop_mhcii_full = pop_coverage_mhcii(separated_peptides, parameters)
-	pop_mhcii_full = pop_coverage_mhc(separated_peptides, parameters, 'II')
-	# with open(join(outputdir,'mhc_ii_pop_coverage_split.txt'), 'w') as out:
-	# 	out.write(pop_mhcii_separated)
-	with open(join(outputdir,'mhc_ii_pop_coverage_original.txt'), 'w') as out:
-		out.write(pop_mhcii_full)
-
-
-	# Run the pop coverage tool for each MHC-I prediction separately
-	pop_mhci_single_region = pop_coverage_single_region(parameters, 'I')
-
-	# Run the pop coverage tool for each MHC-II prediction separately
-	pop_mhcii_single_region = pop_coverage_single_region(parameters, 'II')
-
-	# Parse prediction for overall_coverage value and adds to dictionary
-	pop_mhci_single_region['all'] = get_overall_coverage(pop_mhci_full)
-	pop_mhcii_single_region['all'] = get_overall_coverage(pop_mhcii_full)
-
-	
-	# Create output table
-	## DEPRECATED output_to_table(pop_mhci_single_region, parameters,  separator='\t', filename=join(outputdir,'table_mhci.tsv'))
-	## DEPRECATED output_to_table(pop_mhcii_single_region, parameters, separator='\t', filename= join(outputdir,'table_mhcii.tsv'))
-	output_to_table(pop_mhci_single_region, pop_mhcii_single_region, separator='\t', filename=join(outputdir,'final_table.tsv'))
-
-	# Deletes temporary data dir 
-	rm = parameters['removetemporarydirectory'].lower()
-	if rm == 'true' or rm == 'y' or rm == 'yes':
-		rmtree(parameters['temporarydirectory'])
-
-	return
 # -------------------------------------
 def merge_sequences(list_items):
 	
@@ -520,22 +441,6 @@ def merge_items(data):
 	return [merge_sequences(item) for item in grouped_data]
 
 # -------------------------------------
-def output_to_fasta(datalist, filename):
-
-	'''
-		Creates a fasta file from the list of tuples
-		datalist format: (peptide number, start-end position, peptide sequence)
-	'''
-
-	with open(filename, 'w') as out:
-		for item in datalist:
-			number = item[0]
-			positions = item[1]
-			sequence = item[2]
-			out.write('> ' + number + ' pos: ' + positions + '\n')
-			out.write(sequence + '\n')
-	return
-# -------------------------------------
 def parse_csv_input(csv_file, parameters):
 
 	'''
@@ -553,16 +458,8 @@ def parse_csv_input(csv_file, parameters):
 
 		separated = [line.rstrip().split(',') for line in csv.readlines()]
 	
-	# Outputs to fasta each overlapping peptide
-	# separated = join(parameters['temporarydirectory'], 'individual.fasta.txt')
-	# output_to_fasta(lines, separated)
-
 	# Merge overlapping peptides into one long sequence; outputs to fasta
 	merged = merge_items(separated)
-	# print(separated, merged)
-	# exit(0)
-	# merged = join(parameters['temporarydirectory'], 'merged.fasta.txt')
-	# output_to_fasta(merged_lines, merged)
  
 	return separated, merged
 
@@ -585,7 +482,7 @@ if __name__ == '__main__':
 	
 	parameters = parse_parameters(args.p)
 	
-	coverage_mhci  = run(input_file = args.i, parameters = parameters, mhc_class = 'II')
+	coverage_mhci  = run(input_file = args.i, parameters = parameters, mhc_class = 'I')
 	coverage_mhcii = run(input_file = args.i, parameters = parameters, mhc_class = 'II')
 	
 	output_to_table(coverage_mhci, coverage_mhcii, separator='\t', filename=join(parameters['outputdirectory'],'final_table.tsv'))
