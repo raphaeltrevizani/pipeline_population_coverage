@@ -2,8 +2,7 @@
 
 import subprocess
 from os.path import join
-from os import makedirs, rename
-
+from os import makedirs
 # -------------------------------------	
 def parse_parameters(inputfile):
 
