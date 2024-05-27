@@ -402,7 +402,7 @@ def group_items(list_items):
 
 	'''
 		Auxiliary function that receives a list of items
-		and groups them if the sequences overlap
+		and groups them into lists if the sequences overlap
 	'''
 
 	grouped_data = []
@@ -433,11 +433,12 @@ def group_items(list_items):
 def merge_items(data):
 
 	'''
-		Groups and merges overlapping sequences
+		Merges overlapping sequences
 		Non-overlapping sequences are kept as is
 	'''
-	
+
 	grouped_data = group_items(data)
+
 	return [merge_sequences(item) for item in grouped_data]
 
 # -------------------------------------
