@@ -257,10 +257,10 @@ def pop_coverage_mhc(input_file, parameters, mhc_class):
 	# Run population coverage for the original sequences
 	coverage_all_seqs = run_population_coverage(inputfile, parameters, mhc_class)
 
-	# Changes the default figure name to reflect the 'original' nature of the peptides
-	png_old = join(parameters['outputdirectory'], 'popcov_world_' + mhc_class.lower() + '.png')
-	png_new = join(parameters['outputdirectory'], 'popcov_world_' + mhc_class + '_original.png')
-	rename(png_old, png_new)
+	# # Changes the default figure name to reflect the 'original' nature of the peptides
+	# png_old = join(parameters['outputdirectory'], 'popcov_world_' + mhc_class.lower() + '.png')
+	# png_new = join(parameters['outputdirectory'], 'popcov_world_' + mhc_class + '_original.png')
+	# rename(png_old, png_new)
 
 	# return coverage_separated_seqs, coverage_all_seqs
 	return coverage_all_seqs
@@ -326,9 +326,6 @@ def run(input_file, parameters, mhc_class):
 		Coordinates the pipeline as parametrized
 		by arg:parameters_file
 	'''
-
-	# Parses parameter file, adds the input file as a parameter
-	parameters['inputfile'] = input_file
 
 	# Creates tmp dir and output dir
 	makedirs(parameters['temporarydirectory'], exist_ok=True)
