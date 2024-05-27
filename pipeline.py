@@ -320,78 +320,6 @@ def pop_coverage_single_region(parameters, mhc_class):
 
 
 # -------------------------------------
-def pop_coverage_mhcii_single_region(parameters):
-
-	tmpdir = parameters['temporarydirectory']
-
-	# Parse the merged fasta file TODO: isolate this into a sequence (used in more places)
-	merged_fasta_file = join(tmpdir, 'merged.fasta.txt')
-	with open(merged_fasta_file) as fasta:
-		sequences = [line.rstrip() for line in fasta if not line.startswith('>')]
-
-	# Parse the mhci input file
-	with open(join(tmpdir, 'mhc_ii_prediction')) as predfile:
-		predictions = '\n'.join(predfile.readlines())
-
-	# Create the pop coverage input file
-	pred_results = get_alleles_and_binders(predictions, parameters, 'ii')	
-	pred_results = combine_peptides(pred_results, parameters)
-
-	individual_cover = dict()
-	for num, seq in enumerate(sequences, start=1):
-
-		# Selects the prediction of one sequence
-		pred = pred_results[seq]
-
-		# Creates the inputfile for the pop coverage tool
-		inputfile = create_pop_coverage_input({seq:pred}, parameters, 'pop_coverage_mhcii.' + str(num) + '.input')
-		
-		# Run the pop coverage input file 
-		pop_mhcii_seq = run_population_coverage(inputfile, parameters, 'II')
-
-		# Store the sequence and coverage in a dict
-		coverage = get_overall_coverage(pop_mhcii_seq)
-		individual_cover[str(num) + '-' + seq] = coverage
-
-	return individual_cover
-
-
-# -------------------------------------
-def pop_coverage_mhci_single_region(parameters):
-
-	tmpdir = parameters['temporarydirectory']
-
-	# Parse the merged fasta file TODO: isolate this into a sequence (used in more places)
-	merged_fasta_file = join(tmpdir, 'merged.fasta.txt')
-	with open(merged_fasta_file) as fasta:
-		sequences = [line.rstrip() for line in fasta if not line.startswith('>')]
-
-	# Parse the mhci input file
-	with open(join(tmpdir, 'mhc_i_prediction')) as predfile:
-		predictions = '\n'.join(predfile.readlines())
-
-	# Create the pop coverage input file
-	pred_results = get_alleles_and_binders(predictions, parameters, 'i')	
-	pred_results = combine_peptides(pred_results, parameters)
-
-	individual_cover = dict()
-	for num, seq in enumerate(sequences, start=1):
-
-		# Selects the prediction of one sequence
-		pred = pred_results[seq]
-
-		# Creates the inputfile for the pop coverage tool
-		inputfile = create_pop_coverage_input({seq:pred}, parameters, 'pop_coverage_mhci.' + str(num) + '.input')
-		
-		# Run the pop coverage input file 
-		pop_mhci_seq = run_population_coverage(inputfile, parameters, 'I')
-
-		# Store the sequence and coverage in a dict
-		coverage = get_overall_coverage(pop_mhci_seq)
-		individual_cover[str(num) + '-' + seq] = coverage
-
-	return individual_cover
-# -------------------------------------
 def get_overall_coverage(pop_coverage_output):
 
 	'''
@@ -454,10 +382,10 @@ def run(input_file, parameters_file):
 
 
 	# Run the pop coverage tool for each MHC-I prediction separately
-	pop_mhci_single_region = pop_coverage_mhci_single_region(parameters)
+	pop_mhci_single_region = pop_coverage_single_region(parameters, 'I')
 
 	# Run the pop coverage tool for each MHC-II prediction separately
-	pop_mhcii_single_region = pop_coverage_mhcii_single_region(parameters)
+	pop_mhcii_single_region = pop_coverage_single_region(parameters, 'II')
 
 	# Parse prediction for overall_coverage value and adds to dictionary
 	pop_mhci_single_region['all'] = get_overall_coverage(pop_mhci_full)
@@ -597,19 +525,20 @@ def convert_csv_to_fasta(csv_file, parameters):
  
 	return fasta_individual, fasta_merged
 
-# -------------------------------------
-def parse_arguments():
-
-	import argparse
-
-	parser = argparse.ArgumentParser(description='Pipeline for population coverage of predicted MHC binders.')
-	parser.add_argument('-i', required=True,  type=str,   help='Input file')
-	parser.add_argument('-p', required=False,  type=str,   help='Parameters file', default='parameters.md')
-	args = parser.parse_args()
-
-	return args
 
 # -------------------------------------
 if __name__ == '__main__':
+
+	import argparse
+
+	def parse_arguments():
+
+		parser = argparse.ArgumentParser(description='Pipeline for population coverage of predicted MHC binders.')
+		parser.add_argument('-i', required=True,  type=str,   help='Input file')
+		parser.add_argument('-p', required=False,  type=str,   help='Parameters file', default='parameters.md')
+		args = parser.parse_args()
+
+		return args
+
 	args = parse_arguments()
 	run(input_file = args.i, parameters_file = args.p)
