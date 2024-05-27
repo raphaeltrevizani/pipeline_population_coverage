@@ -1,5 +1,5 @@
 
-# Adjust these accordingly
+# Adjust this accordingly
 output directory = test/results
 
 # Set parameters 
