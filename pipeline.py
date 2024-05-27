@@ -170,7 +170,7 @@ def create_pop_coverage_input(pred_results, parameters, filename):
 	return pop_input_name
 
 # -------------------------------------
-def run_mhc_prediction(inputfile, parameters, mhc_class):
+def run_mhc_prediction(inputdata, parameters, mhc_class):
 	'''
 		Uses the API to predict binders
 	'''
@@ -180,13 +180,16 @@ def run_mhc_prediction(inputfile, parameters, mhc_class):
 	
 	# Gets HLAs and respective sizes from HLA file
 	hlas, sizes = parse_hla_file(parameters, mhc_class)
-
-	peptides = list()
-	with open(inputfile) as inp:
-		for line in inp:
-			if not line.startswith('>'):
-				peptides.append(line.rstrip())
-	peptides = list(filter(None, peptides))
+	
+	# Get peptides sequences from input data
+	peptides = [item[2] for item in inputdata]
+	# exit(0)
+	# peptides = list()
+	# with open(inputfile) as inp:
+	# 	for line in inp:
+	# 		if not line.startswith('>'):
+	# 			peptides.append(line.rstrip())
+	# peptides = list(filter(None, peptides))
 	peptides = ''.join(['%3Epeptide' + str(num) + '%0A' + pep.rstrip() + '%0A' for num, pep in enumerate(peptides, start = 1)])
 
 	command = "curl --data \"method=" + parameters['mhc'+mhc_class+'method'] + "&sequence_text="+peptides+"&allele=" + hlas + "&length="+ sizes +"\" http://tools-cluster-interface.iedb.org/tools_api/mhc"+mhc_class+"/"
@@ -362,11 +365,34 @@ def run(input_file, parameters_file):
 	makedirs(outputdir, exist_ok=True)
 	
 	# TODO remove fasta file; using the API from now on
-	separated_peptides, joined_peptides = convert_csv_to_fasta(input_file, parameters)
+	separated_peptides, joined_peptides = parse_csv_input(input_file, parameters)
 
 	# Runs pipeline for MHC-I; saves to file
 	# pop_mhci_separated, pop_mhci_full = pop_coverage_mhci(separated_peptides, parameters)
-	pop_mhci_full = pop_coverage_mhc(separated_peptides, parameters, 'I')
+	mhc_class = 'I'
+	# pop_mhci_full = pop_coverage_mhc(separated_peptides, parameters, mhc_class)
+	
+	# Runs the MHC-I prediction tool specified in the parameter file
+	prediction = run_mhc_prediction(separated_peptides, parameters, mhc_class)
+	
+	# Saves MHC-I prediction to a file for future use/debugging
+	save_prediction_to_file(prediction, parameters, 'mhc_' + mhc_class.lower() + '_prediction')
+
+	# Isolate peptides and their respective binding alleles
+	pred_results = get_alleles_and_binders(prediction, parameters, mhc_class)
+
+	# Combines the overlapping peptides and merges HLA sets
+	pred_results_combined = combine_peptides(pred_results, parameters)
+
+	# Creates the pop coverage input for each peptide individually
+	inputfile = create_pop_coverage_input(pred_results_combined, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.original.input')
+
+	# Run population coverage for the original sequences
+	pop_mhci_full = run_population_coverage(inputfile, parameters, mhc_class)
+
+	print(pop_mhci_full)
+
+	exit(0)
 	# with open(join(outputdir,'mhc_i_pop_coverage_split.txt'), 'w') as out:
 	# 	out.write(pop_mhci_separated)
 	with open(join(outputdir,'mhc_i_pop_coverage_original.txt'), 'w') as out:
@@ -478,7 +504,7 @@ def merge_items(data):
 		Groups and merges overlapping sequences
 		Non-overlapping sequences are kept as is
 	'''
-
+	
 	grouped_data = group_items(data)
 	return [merge_sequences(item) for item in grouped_data]
 
@@ -499,11 +525,13 @@ def output_to_fasta(datalist, filename):
 			out.write(sequence + '\n')
 	return
 # -------------------------------------
-def convert_csv_to_fasta(csv_file, parameters):
+def parse_csv_input(csv_file, parameters):
 
 	'''
-		Automates converting csv files from the Sette lab
-		to fasta files so the MHC prediction tools can be used
+		Parse the .csv input file. 
+		Returns two lists of sequences:
+		1. the original 15-mers and 
+		2. the merged overlapping sequences
 	'''
 
 	with open(csv_file) as csv:
@@ -512,18 +540,20 @@ def convert_csv_to_fasta(csv_file, parameters):
 		for _ in range(3):
 				next(csv)
 
-		lines = [line.split(',') for line in csv.readlines()]
-
+		separated = [line.rstrip().split(',') for line in csv.readlines()]
+	
 	# Outputs to fasta each overlapping peptide
-	fasta_individual = join(parameters['temporarydirectory'], 'individual.fasta.txt')
-	output_to_fasta(lines, fasta_individual)
+	# separated = join(parameters['temporarydirectory'], 'individual.fasta.txt')
+	# output_to_fasta(lines, separated)
 
 	# Merge overlapping peptides into one long sequence; outputs to fasta
-	merged_lines = merge_items(lines)
-	fasta_merged = join(parameters['temporarydirectory'], 'merged.fasta.txt')
-	output_to_fasta(merged_lines, fasta_merged)
+	merged = merge_items(separated)
+	# print(separated, merged)
+	# exit(0)
+	# merged = join(parameters['temporarydirectory'], 'merged.fasta.txt')
+	# output_to_fasta(merged_lines, merged)
  
-	return fasta_individual, fasta_merged
+	return separated, merged
 
 
 # -------------------------------------
