@@ -3,7 +3,7 @@
 import subprocess
 from os.path import join
 from os import makedirs, rename
-from shutil import rmtree
+# from shutil import rmtree
 
 # -------------------------------------	
 def parse_parameters(inputfile):
@@ -220,14 +220,15 @@ def run_population_coverage(inputfile, parameters, mhc_class):
 	return result.stdout
 
 # -------------------------------------
-def combine_peptides(dict_pep_hla, parameters):
+def combine_peptides(joined_data, dict_pep_hla, parameters):
 
-	# Parse sequences from merged fasta file:
-	merged_fasta_file = join(parameters['temporarydirectory'], 'merged.fasta.txt')
-	with open(merged_fasta_file) as fasta:
-		sequences = [line.rstrip() for line in fasta if not line.startswith('>')]
+	# # Parse sequences from merged fasta file:
+	# merged_fasta_file = join(parameters['temporarydirectory'], 'merged.fasta.txt')
+	# with open(merged_fasta_file) as fasta:
+	# 	sequences = [line.rstrip() for line in fasta if not line.startswith('>')]
 	
 	# Empty dictionary where original sequences are keys that maps to a set of HLAs
+	sequences = [item[2] for item in joined_data]
 	combined_pep_hla = {seq:list() for seq in sequences}
 	
 	for key_ind in dict_pep_hla:
@@ -284,25 +285,30 @@ def pop_coverage_mhc(input_file, parameters, mhc_class):
 	return coverage_all_seqs
 
 # -------------------------------------
-def pop_coverage_single_region(parameters, mhc_class):
+def pop_coverage_single_region(joined_data, parameters, mhc_class, predictions):
 
 	tmpdir = parameters['temporarydirectory']
 
 	# Parse the merged fasta file TODO: isolate this into a sequence (used in more places)
-	merged_fasta_file = join(tmpdir, 'merged.fasta.txt')
-	with open(merged_fasta_file) as fasta:
-		sequences = [line.rstrip() for line in fasta if not line.startswith('>')]
+	# merged_fasta_file = join(tmpdir, 'merged.fasta.txt')
+	# with open(merged_fasta_file) as fasta:
+	# 	sequences = [line.rstrip() for line in fasta if not line.startswith('>')]
 
-	
-	# Parse the mhci input file
-	with open(join(tmpdir, 'mhc_' + mhc_class.lower() + '_prediction')) as predfile:
-		predictions = '\n'.join(predfile.readlines())
+	# print(sequences)
+	sequences = [item[2] for item in joined_data]
+	# print(sequences)	
+	# exit(0)
+	# # Parse the mhci input file
+	# with open(join(tmpdir, 'mhc_' + mhc_class.lower() + '_prediction')) as predfile:
+	# 	predictions = '\n'.join(predfile.readlines())
 
 	# Create the pop coverage input file
 	pred_results = get_alleles_and_binders(predictions, parameters, mhc_class.lower())	
-	pred_results = combine_peptides(pred_results, parameters)
+	# print(sequences)
+	pred_results = combine_peptides(joined_data, pred_results, parameters)
 
 	individual_cover = dict()
+	
 	for num, seq in enumerate(sequences, start=1):
 
 		# Selects the prediction of one sequence
@@ -319,8 +325,6 @@ def pop_coverage_single_region(parameters, mhc_class):
 		individual_cover[str(num) + '-' + seq] = coverage
 
 	return individual_cover
-
-
 
 # -------------------------------------
 def get_overall_coverage(pop_coverage_output):
@@ -348,7 +352,7 @@ def output_to_table(mhci, mhcii, separator, filename):
 
 	return 
 # -------------------------------------
-def run(input_file, parameters_file):
+def run(input_file, parameters, mhc_class):
 
 	'''
 		Coordinates the pipeline as parametrized
@@ -356,7 +360,7 @@ def run(input_file, parameters_file):
 	'''
 
 	# Parses parameter file, adds the input file as a parameter
-	parameters = parse_parameters(parameters_file)
+	# parameters = parse_parameters(parameters_file)
 	parameters['inputfile'] = input_file
 
 	# Creates tmp dir and output dir
@@ -369,7 +373,7 @@ def run(input_file, parameters_file):
 
 	# Runs pipeline for MHC-I; saves to file
 	# pop_mhci_separated, pop_mhci_full = pop_coverage_mhci(separated_peptides, parameters)
-	mhc_class = 'I'
+	
 	# pop_mhci_full = pop_coverage_mhc(separated_peptides, parameters, mhc_class)
 	
 	# Runs the MHC-I prediction tool specified in the parameter file
@@ -381,18 +385,25 @@ def run(input_file, parameters_file):
 	# Isolate peptides and their respective binding alleles
 	pred_results = get_alleles_and_binders(prediction, parameters, mhc_class)
 
-	# Combines the overlapping peptides and merges HLA sets
-	pred_results_combined = combine_peptides(pred_results, parameters)
+	# Merges HLA sets according to overlapping peptides
+	pred_results_combined = combine_peptides(joined_peptides, pred_results, parameters)
 
 	# Creates the pop coverage input for each peptide individually
 	inputfile = create_pop_coverage_input(pred_results_combined, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.original.input')
 
 	# Run population coverage for the original sequences
-	pop_mhci_full = run_population_coverage(inputfile, parameters, mhc_class)
+	full_coverage_output = run_population_coverage(inputfile, parameters, mhc_class)
+	full_coverage = get_overall_coverage(full_coverage_output)
 
-	print(pop_mhci_full)
-
+	# Run the pop coverage tool for each MHC-I prediction separately
+	coverage_dict = pop_coverage_single_region(joined_peptides, parameters, mhc_class, prediction)
+	coverage_dict['all'] = full_coverage
+	return coverage_dict
 	exit(0)
+	# print(single_region_dict)
+	# exit(0)
+
+
 	# with open(join(outputdir,'mhc_i_pop_coverage_split.txt'), 'w') as out:
 	# 	out.write(pop_mhci_separated)
 	with open(join(outputdir,'mhc_i_pop_coverage_original.txt'), 'w') as out:
@@ -571,4 +582,10 @@ if __name__ == '__main__':
 		return args
 
 	args = parse_arguments()
-	run(input_file = args.i, parameters_file = args.p)
+	
+	parameters = parse_parameters(args.p)
+	
+	coverage_mhci  = run(input_file = args.i, parameters = parameters, mhc_class = 'II')
+	coverage_mhcii = run(input_file = args.i, parameters = parameters, mhc_class = 'II')
+	
+	output_to_table(coverage_mhci, coverage_mhcii, separator='\t', filename=join(parameters['outputdirectory'],'final_table.tsv'))
