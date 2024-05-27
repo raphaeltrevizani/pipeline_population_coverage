@@ -315,6 +315,7 @@ def run(input_file, parameters, mhc_class):
 	# Creates tmp dir and output dir
 	makedirs(parameters['temporarydirectory'], exist_ok=True)
 	
+	# Gets the peptides from the csv input file
 	separated_peptides, joined_peptides = parse_csv_input(input_file, parameters)
 
 	# Runs the MHC-I prediction tool specified in the parameter file
