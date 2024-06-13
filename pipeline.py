@@ -3,6 +3,7 @@
 import subprocess
 from os.path import join
 from os import makedirs
+from shutil import rmtree
 # -------------------------------------	
 def parse_parameters(inputfile):
 
@@ -36,7 +37,10 @@ def parse_parameters(inputfile):
 
 				# Adds to dictionary of parameters
 				parameters[k] = v
-	
+
+	# Coverage area must be a list of regions
+	parameters['coveragearea'] = parameters['coveragearea'].split(',')
+
 	return parameters
 
 # -------------------------------------
@@ -126,7 +130,7 @@ def get_alleles_and_binders(prediction, parameters, mhc_class):
 
 	# Splits str(prediction) into a list of rows; ignores header; filters empty
 	pred_lines = filter(None, prediction.split('\n')[1:])
-	
+
 	# Dictionary format {peptide:str(allele1,...,alleleN)}
 	pred_results = dict()
 	
@@ -213,11 +217,23 @@ def run_population_coverage(inputfile, parameters, mhc_class):
 	method_path = join(parameters['populationcoveragedirectory'], 'calculate_population_coverage.py')
 
 	py = parameters['pythonpath']
-	command = py + ' ' + method_path + ' -f ' + inputfile + ' -p ' + parameters['coveragearea'] + ' -c ' + mhc_class + ' --plot ' + parameters['outputdirectory']
 
-	result = subprocess.run(command, shell=True, capture_output=True, text=True)
-		
-	return result.stdout
+	# Runs the population tool for each sub-area
+	coverage = dict()
+	for area in parameters['coveragearea']:
+		command = py + ' ' + method_path + ' -f ' + inputfile + ' -p ' + area + ' -c ' + mhc_class + ' --plot ' + parameters['outputdirectory']
+
+		result = subprocess.run(command, shell=True, capture_output=True, text=True)
+
+		# Store the sequence and coverage in a dict
+		try:
+			coverage[area] = get_overall_coverage(result.stdout)
+		except:
+			print(result.stdout)
+
+	print(coverage)
+	exit(0)
+	return coverage
 
 # -------------------------------------
 def combine_peptides(joined_data, dict_pep_hla):
@@ -257,10 +273,8 @@ def pop_coverage_single_region(joined_data, parameters, mhc_class, predictions):
 		inputfile = create_pop_coverage_input({seq:pred}, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.' + str(num) + '.input')
 		
 		# Run the pop coverage input file 
-		pop_seq = run_population_coverage(inputfile, parameters, mhc_class.upper())
+		coverage = run_population_coverage(inputfile, parameters, mhc_class.upper())
 
-		# Store the sequence and coverage in a dict
-		coverage = get_overall_coverage(pop_seq)
 		individual_cover[str(num) + '-' + seq] = coverage
 
 	return individual_cover
@@ -298,6 +312,8 @@ def run(input_file, parameters, mhc_class):
 		by arg:parameters_file
 	'''
 
+
+
 	# Creates tmp dir and output dir
 	makedirs(parameters['temporarydirectory'], exist_ok=True)
 	
@@ -317,9 +333,8 @@ def run(input_file, parameters, mhc_class):
 	inputfile = create_pop_coverage_input(pred_results_combined, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.original.input')
 
 	# Run population coverage for the original sequences
-	full_coverage_output = run_population_coverage(inputfile, parameters, mhc_class)
-	full_coverage = get_overall_coverage(full_coverage_output)
-
+	full_coverage = run_population_coverage(inputfile, parameters, mhc_class)
+	
 	# Run the pop coverage tool for each peptide separately
 	coverage_dict = pop_coverage_single_region(joined_peptides, parameters, mhc_class, prediction)
 	coverage_dict['all'] = full_coverage
