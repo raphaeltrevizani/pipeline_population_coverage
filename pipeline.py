@@ -312,7 +312,8 @@ def run(input_file, parameters, mhc_class):
 		by arg:parameters_file
 	'''
 
-
+	# Clears old tmp dir
+	rmtree(parameters['temporarydirectory'])
 
 	# Creates tmp dir and output dir
 	makedirs(parameters['temporarydirectory'], exist_ok=True)
