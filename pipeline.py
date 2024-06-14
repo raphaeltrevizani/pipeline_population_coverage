@@ -15,31 +15,30 @@ def parse_parameters(inputfile):
 
 	parameters = dict()
 
+	# Function that detects if a line contains alphanumeric characters
 	with open(inputfile) as par:
 		for line in par:
+		
+			# Removes non-alphanumeric chars
+			line = line.strip('_\t\n\'\"').replace(' ', '').replace('-', '')
 
 			# Skip comment lines
 			if line.startswith('#'):
 				continue
-   
-			# Removes non-alphanumeric extra characters; converts to lowercase
-			line = line.strip('\t\n\'\"').replace(' ', '').replace('-', '')
-
-			# If line isn't empty after cleaning
+	
+			# If line contains alphanumeric chars, is valid
 			if line: 
 
 				# File format: variable = value
 				k,v = line.split('=') 
 
-				# Removes non-alphanumeric extra characters
+				# Removes non-alphanumeric extra characters from key
 				k = k.strip('_\t\n\'\"').replace(' ', '').replace('-', '').lower()
 				v = v.strip('_\t\n\'\"').replace(' ', '').replace('-', '')
 
 				# Adds to dictionary of parameters
 				parameters[k] = v
 
-	# Coverage area must be a list of regions
-	parameters['coveragearea'] = parameters['coveragearea'].split(',')
 
 	return parameters
 
@@ -203,6 +202,11 @@ def run_mhc_prediction(inputdata, parameters, mhc_class):
 	return result.stdout
 
 # -------------------------------------
+def parse_areas_file(parameters):
+	with open(parameters['areas']) as inputfile:
+		return [line.rstrip() for line in inputfile]
+	 
+# -------------------------------------
 def run_population_coverage(inputfile, parameters, mhc_class):
 
 	'''
@@ -220,8 +224,11 @@ def run_population_coverage(inputfile, parameters, mhc_class):
 
 	# Runs the population tool for each sub-area
 	coverage = dict()
-	for area in parameters['coveragearea']:
-		command = py + ' ' + method_path + ' -f ' + inputfile + ' -p ' + area + ' -c ' + mhc_class + ' --plot ' + parameters['outputdirectory']
+	
+	areas = parse_areas_file(parameters)
+
+	for area in areas:
+		command = py + ' ' + method_path + ' -f ' + inputfile + ' -p ' + '"' + area + '"' +  ' -c ' + mhc_class + ' --plot ' + parameters['outputdirectory']
 
 		result = subprocess.run(command, shell=True, capture_output=True, text=True)
 
@@ -229,10 +236,8 @@ def run_population_coverage(inputfile, parameters, mhc_class):
 		try:
 			coverage[area] = get_overall_coverage(result.stdout)
 		except:
-			print(result.stdout)
+			coverage[area] = 'No data'
 
-	print(coverage)
-	exit(0)
 	return coverage
 
 # -------------------------------------
@@ -268,7 +273,7 @@ def pop_coverage_single_region(joined_data, parameters, mhc_class, predictions):
 
 		# Selects the prediction of one sequence
 		pred = pred_results[seq]
-
+		
 		# Creates the inputfile for the pop coverage tool
 		inputfile = create_pop_coverage_input({seq:pred}, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.' + str(num) + '.input')
 		
@@ -323,7 +328,7 @@ def run(input_file, parameters, mhc_class):
 
 	# Runs the MHC-I prediction tool specified in the parameter file
 	prediction = run_mhc_prediction(separated_peptides, parameters, mhc_class)
-	
+
 	# Isolate peptides and their respective binding alleles
 	pred_results = get_alleles_and_binders(prediction, parameters, mhc_class)
 
