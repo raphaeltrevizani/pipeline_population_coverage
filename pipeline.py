@@ -309,6 +309,21 @@ def output_to_table(mhci, mhcii, separator, filename):
 		out.write('\n'.join(coverage_per_epitope))
 
 	return 
+
+# -------------------------------------
+def pop_coverage_all_regions(joined_peptides, parameters, mhc_class, prediction):
+	# Isolate peptides and their respective binding alleles
+	pred_results = get_alleles_and_binders(prediction, parameters, mhc_class)
+
+	# Merges HLA sets according to overlapping peptides
+	pred_results_combined = combine_peptides(joined_peptides, pred_results)
+
+	# Creates the pop coverage input for each peptide individually
+	inputfile = create_pop_coverage_input(pred_results_combined, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.original.input')
+
+	# Run population coverage for the original sequences
+	return run_population_coverage(inputfile, parameters, mhc_class)
+
 # -------------------------------------
 def run(input_file, parameters, mhc_class):
 
@@ -328,22 +343,13 @@ def run(input_file, parameters, mhc_class):
 
 	# Runs the MHC-I prediction tool specified in the parameter file
 	prediction = run_mhc_prediction(separated_peptides, parameters, mhc_class)
-
-	# Isolate peptides and their respective binding alleles
-	pred_results = get_alleles_and_binders(prediction, parameters, mhc_class)
-
-	# Merges HLA sets according to overlapping peptides
-	pred_results_combined = combine_peptides(joined_peptides, pred_results)
-
-	# Creates the pop coverage input for each peptide individually
-	inputfile = create_pop_coverage_input(pred_results_combined, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.original.input')
-
-	# Run population coverage for the original sequences
-	full_coverage = run_population_coverage(inputfile, parameters, mhc_class)
 	
 	# Run the pop coverage tool for each peptide separately
 	coverage_dict = pop_coverage_single_region(joined_peptides, parameters, mhc_class, prediction)
-	coverage_dict['all'] = full_coverage
+
+	# Run pop coverage tool for all regions combined and add to dictionary
+	coverage_dict['all'] = pop_coverage_all_regions(joined_peptides, parameters, mhc_class, prediction)
+
 	return coverage_dict
 
 # -------------------------------------
@@ -472,5 +478,7 @@ if __name__ == '__main__':
 	
 	coverage_mhci  = run(input_file = args.i, parameters = parameters, mhc_class = 'I')
 	coverage_mhcii = run(input_file = args.i, parameters = parameters, mhc_class = 'II')
-	
+	print(coverage_mhci)
+	print(coverage_mhcii)
+	exit(0)
 	output_to_table(coverage_mhci, coverage_mhcii, separator='\t', filename=join(parameters['outputdirectory'],'final_table.tsv'))
