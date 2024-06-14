@@ -196,7 +196,7 @@ def run_mhc_prediction(inputdata, parameters, mhc_class):
 	peptides = ''.join(['%3Epeptide' + str(num) + '%0A' + pep.rstrip() + '%0A' for num, pep in enumerate(peptides, start = 1)])
 
 	command = "curl --data \"method=" + parameters['mhc'+mhc_class+'method'] + "&sequence_text="+peptides+"&allele=" + hlas + "&length="+ sizes +"\" http://tools-cluster-interface.iedb.org/tools_api/mhc"+mhc_class+"/"
-	
+	input(command)
 	result = subprocess.run(command, shell=True, capture_output=True, text=True)
 
 	return result.stdout
