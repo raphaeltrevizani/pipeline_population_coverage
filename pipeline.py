@@ -480,7 +480,9 @@ if __name__ == '__main__':
 	
 	coverage_mhci  = run(input_file = args.i, parameters = parameters, mhc_class = 'I')
 	coverage_mhcii = run(input_file = args.i, parameters = parameters, mhc_class = 'II')
-	print(coverage_mhci)
-	print(coverage_mhcii)
-	exit(0)
-	output_to_table(coverage_mhci, coverage_mhcii, separator='\t', filename=join(parameters['outputdirectory'],'final_table.tsv'))
+
+	
+	coverage_per_epitope = [k + '\t' + coverage_mhci[k] + '\t' + coverage_mhcii[k] for k in coverage_mhci]
+	print(coverage_per_epitope)
+
+	# output_to_table(coverage_mhci, coverage_mhcii, separator='\t', filename=join(parameters['outputdirectory'],'final_table.tsv'))
