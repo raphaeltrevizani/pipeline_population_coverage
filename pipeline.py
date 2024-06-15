@@ -207,7 +207,7 @@ def parse_areas_file(parameters):
 		return [line.rstrip() for line in inputfile]
 	 
 # -------------------------------------
-def run_population_coverage(inputfile, parameters, mhc_class):
+def run_population_coverage(inputfile, parameters, mhc_class, areas=['World']):
 
 	'''
 		Calls the IEDB population coverage tool 
@@ -224,8 +224,6 @@ def run_population_coverage(inputfile, parameters, mhc_class):
 
 	# Runs the population tool for each sub-area
 	coverage = dict()
-	
-	areas = parse_areas_file(parameters)
 
 	for area in areas:
 		command = py + ' ' + method_path + ' -f ' + inputfile + ' -p ' + '"' + area + '"' +  ' -c ' + mhc_class + ' --plot ' + parameters['outputdirectory']
@@ -278,7 +276,8 @@ def pop_coverage_single_region(joined_data, parameters, mhc_class, predictions):
 		inputfile = create_pop_coverage_input({seq:pred}, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.' + str(num) + '.input')
 		
 		# Run the pop coverage input file 
-		coverage = run_population_coverage(inputfile, parameters, mhc_class.upper())
+		areas = parse_areas_file(parameters)
+		coverage = run_population_coverage(inputfile, parameters, mhc_class.upper(), areas)
 
 		individual_cover[str(num) + '-' + seq] = coverage
 
@@ -321,8 +320,11 @@ def pop_coverage_all_regions(joined_peptides, parameters, mhc_class, prediction)
 	# Creates the pop coverage input for each peptide individually
 	inputfile = create_pop_coverage_input(pred_results_combined, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.original.input')
 
+	# Get all major sub areas for the globe 
+	areas = parse_areas_file(parameters)
+	
 	# Run population coverage for the original sequences
-	return run_population_coverage(inputfile, parameters, mhc_class)
+	return run_population_coverage(inputfile, parameters, mhc_class, areas)
 
 # -------------------------------------
 def run(input_file, parameters, mhc_class):
@@ -464,8 +466,8 @@ if __name__ == '__main__':
 	def parse_arguments():
 
 		parser = argparse.ArgumentParser(description='Pipeline for population coverage of predicted MHC binders.')
-		parser.add_argument('-i', required=True,  type=str,   help='Input file')
-		parser.add_argument('-p', required=False,  type=str,   help='Parameters file', default='parameters.md')
+		parser.add_argument('-i', required=True,  type=str, help='Input file')
+		parser.add_argument('-p', required=False, type=str, help='Parameters file', default='parameters.md')
 		args = parser.parse_args()
 
 		return args
