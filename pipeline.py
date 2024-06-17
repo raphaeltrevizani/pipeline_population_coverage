@@ -482,7 +482,17 @@ if __name__ == '__main__':
 	coverage_mhcii = run(input_file = args.i, parameters = parameters, mhc_class = 'II')
 
 	
-	coverage_per_epitope = [k + '\t' + coverage_mhci[k] + '\t' + coverage_mhcii[k] for k in coverage_mhci]
-	print(coverage_per_epitope)
+	
+	for epitope in coverage_mhci:
+		output_str = epitope + '\n' + '\t' + 'Class-I' + '\t' + 'Class-II'
+		for subregion in coverage_mhci[epitope]:
+			# print( subregion, end=': ')
+			output_str += subregion + ':\t' + coverage_mhci[epitope][subregion] + '\t' +  coverage_mhcii[epitope][subregion] + '\n'
+
+		with open(join(parameters['outputdirectory'], epitope), 'w') as outputfile:
+			outputfile.write(output_str)
+
+
+	# print(coverage_per_epitope)
 
 	# output_to_table(coverage_mhci, coverage_mhcii, separator='\t', filename=join(parameters['outputdirectory'],'final_table.tsv'))
