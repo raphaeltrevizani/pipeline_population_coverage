@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import subprocess
-from os.path import join
+from os.path import join, exists
 from os import makedirs
 from shutil import rmtree
 # -------------------------------------	
@@ -155,7 +155,10 @@ def get_alleles_and_binders(prediction, parameters, mhc_class):
 	return pred_results
 
 # -------------------------------------
-def create_pop_coverage_input(pred_results, parameters, filename): 
+def filter_locus(alleles, locus):
+	return ','.join([hla for hla in alleles.split(',') if locus in hla.split('*')[0].split('-')[1]])
+# -------------------------------------
+def create_pop_coverage_input(pred_results, parameters, filename, locus=False): 
 
 	'''
 		Creates the input file needed to call 
@@ -170,8 +173,11 @@ def create_pop_coverage_input(pred_results, parameters, filename):
 	# Writes to file
 	with open(pop_input_name, 'w') as f:
 		for peptide, allele_list in pred_results.items():
-			line = peptide + '\t' + allele_list + '\n'
-			f.write(line)
+			if locus:
+				allele_list = filter_locus(allele_list, locus)
+			if allele_list:
+				line = peptide + '\t' + allele_list + '\n'
+				f.write(line)
 
 	# Returns file name
 	return pop_input_name
@@ -234,7 +240,7 @@ def run_population_coverage(inputfile, parameters, mhc_class, areas=['World']):
 		try:
 			coverage[area] = get_overall_coverage(result.stdout)
 		except:
-			coverage[area] = 'No data'
+			coverage[area] = 'NA'
 
 	return coverage
 
@@ -256,6 +262,19 @@ def combine_peptides(joined_data, dict_pep_hla):
 	return combined_pep_hla
 
 # -------------------------------------
+def separate_hla_by_loci(hlas):
+
+	dict_loci = dict()
+
+	for hla in hlas.split(','):
+		loci = hla.split('*')[0].split('-')[1]
+		if loci in dict_loci:
+			dict_loci[loci] += [hla]
+		else:
+			dict_loci[loci] = [hla]
+
+	return {loci:','.join(hlas) for loci, hlas in dict_loci.items()}
+# -------------------------------------
 def pop_coverage_single_region(joined_data, parameters, mhc_class, predictions):
 
 	sequences = [item[2] for item in joined_data]
@@ -265,21 +284,35 @@ def pop_coverage_single_region(joined_data, parameters, mhc_class, predictions):
 
 	pred_results = combine_peptides(joined_data, pred_results)
 
+	if mhc_class.lower() == 'i':
+		loci = ['A', 'B']
+	if mhc_class.lower() == 'ii':
+		loci = ['DP', 'DQ', 'DR']
+
 	individual_cover = dict()
-	
+
 	for num, seq in enumerate(sequences, start=1):
 
-		# Selects the prediction of one sequence
-		pred = pred_results[seq]
-		
-		# Creates the inputfile for the pop coverage tool
-		inputfile = create_pop_coverage_input({seq:pred}, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.' + str(num) + '.input')
-		
-		# Run the pop coverage input file 
-		areas = parse_areas_file(parameters)
-		coverage = run_population_coverage(inputfile, parameters, mhc_class.upper(), areas)
+		hlas = pred_results[seq]
 
-		individual_cover[str(num) + '-' + seq] = coverage
+		cover_per_locus = dict()
+		
+		for locus in loci:
+
+
+			# Creates the inputfile for the pop coverage tool
+			inputfile = create_pop_coverage_input({seq:hlas}, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.' + str(num) + '.'  + locus + '.input', locus=locus)
+			
+			# Run the pop coverage input file 
+			areas = parse_areas_file(parameters)
+			coverage = run_population_coverage(inputfile, parameters, mhc_class.upper(), areas)
+
+			cover_per_locus[locus] = coverage
+
+		individual_cover[str(num) + '-' + seq] = cover_per_locus
+
+	inputfile = create_pop_coverage_input(pred_results, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.original.input')
+	cover_per_locus['any'] = run_population_coverage(inputfile, parameters, mhc_class, areas)
 
 	return individual_cover
 
@@ -311,20 +344,36 @@ def output_to_table(mhci, mhcii, separator, filename):
 
 # -------------------------------------
 def pop_coverage_all_regions(joined_peptides, parameters, mhc_class, prediction):
+
+
 	# Isolate peptides and their respective binding alleles
 	pred_results = get_alleles_and_binders(prediction, parameters, mhc_class)
 
 	# Merges HLA sets according to overlapping peptides
 	pred_results_combined = combine_peptides(joined_peptides, pred_results)
 
-	# Creates the pop coverage input for each peptide individually
-	inputfile = create_pop_coverage_input(pred_results_combined, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.original.input')
+	if mhc_class.lower() == 'i':
+		loci = ['A', 'B']
+	if mhc_class.lower() == 'ii':
+		loci = ['DP', 'DQ', 'DR']
 
 	# Get all major sub areas for the globe 
 	areas = parse_areas_file(parameters)
-	
-	# Run population coverage for the original sequences
-	return run_population_coverage(inputfile, parameters, mhc_class, areas)
+
+	cover_per_locus = dict()
+
+	for locus in loci:
+
+		# Creates the pop coverage input for each peptide individually
+		inputfile = create_pop_coverage_input(pred_results_combined, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.original.'+locus+'.input', locus)
+		
+		# Run population coverage for the original sequences
+		cover_per_locus[locus] = run_population_coverage(inputfile, parameters, mhc_class, areas)
+
+	inputfile = create_pop_coverage_input(pred_results_combined, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.original.input')
+	cover_per_locus['any'] = run_population_coverage(inputfile, parameters, mhc_class, areas)
+
+	return cover_per_locus
 
 # -------------------------------------
 def run(input_file, parameters, mhc_class):
@@ -333,9 +382,6 @@ def run(input_file, parameters, mhc_class):
 		Coordinates the pipeline as parametrized
 		by arg:parameters_file
 	'''
-
-	# Clears old tmp dir
-	rmtree(parameters['temporarydirectory'])
 
 	# Creates tmp dir and output dir
 	makedirs(parameters['temporarydirectory'], exist_ok=True)
@@ -478,21 +524,68 @@ if __name__ == '__main__':
 	outputdir = parameters['outputdirectory']
 	makedirs(outputdir, exist_ok=True)
 	
+	# Clears old tmp dir if it exists
+	if exists(parameters['temporarydirectory']):
+		rmtree(parameters['temporarydirectory'])
+
 	coverage_mhci  = run(input_file = args.i, parameters = parameters, mhc_class = 'I')
 	coverage_mhcii = run(input_file = args.i, parameters = parameters, mhc_class = 'II')
 
-	
-	
 	for epitope in coverage_mhci:
-		output_str = epitope + '\n' + '\t' + 'Class-I' + '\t' + 'Class-II'
-		for subregion in coverage_mhci[epitope]:
-			# print( subregion, end=': ')
-			output_str += subregion + ':\t' + coverage_mhci[epitope][subregion] + '\t' +  coverage_mhcii[epitope][subregion] + '\n'
 
-		with open(join(parameters['outputdirectory'], epitope), 'w') as outputfile:
+		output_str = ''
+		output_str += epitope + '\t' + 'Class-I' + '\t\t\t' + 'Class-II' + '\n'
+		output_str += 'Region\t'
+
+		loci_dict = coverage_mhci[epitope]
+		loci_dictb = coverage_mhcii[epitope]
+		
+		loci = [l for l in loci_dict]
+		locib = [l for l in loci_dictb]
+		
+		output_str += '\t'.join(loci) + '\t'
+		output_str += '\t'.join(locib) + '\n'
+
+		for region in loci_dict[loci[0]].keys():
+			output_str += region  + '\t'
+			for loci in loci_dict.keys():
+				output_str += loci_dict[loci][region] + '\t'
+			for loci in loci_dictb.keys():
+				output_str += loci_dictb[loci][region] + '\t'
+			output_str += '\n'
+		
+		with open(join(parameters['outputdirectory'], epitope+'.tsv'),'w') as outputfile:
 			outputfile.write(output_str)
 
 
-	# print(coverage_per_epitope)
+	# for epitope in coverage_mhci:
+	# 	headers = epitope + '\t' + 'Class-I' + '\t' + 'Class-II' + '\n'
+	# 	print(headers)
+	# 	loci_dict = coverage_mhci[epitope]
 
-	# output_to_table(coverage_mhci, coverage_mhcii, separator='\t', filename=join(parameters['outputdirectory'],'final_table.tsv'))
+	# 	print('\t'.join([loci for loci in loci_dict]))
+
+	# 	for key, val in loci_dict.items():
+	# 		row = f"{key},{val['name']},{val['price']},{val['quantity']}\n"
+
+	# 	# print(headers)
+	# 	# # Writing data
+	# 	# for key, val in nested_dict.items():
+	# 	# 	print(key, val)
+	# 		# row = f"{key},{val['name']},{val['price']},{val['quantity']}\n"
+	# 		# file.write(row)
+	# # for epitope in coverage_mhci:
+	# # 	output_str = epitope + '\t' + '\t' + 'Class-I' + '\t' + 'Class-II' + '\n'
+	# # 	output_str += 'Region' + '\t' + '\t'.join(coverage_mhci[epitope].values())
+	# # 	for loci in coverage_mhci[epitope]:
+	# # 		for subregion in coverage_mhci[epitope]:
+
+	# # 			output_str += subregion + ':\t' + coverage_mhci[epitope][subregion] + '\t' +  coverage_mhcii[epitope][subregion] + '\n'
+
+	# # 		with open(join(parameters['outputdirectory'], epitope), 'w') as outputfile:
+	# # 			outputfile.write(output_str)
+
+
+	# # print(coverage_per_epitope)
+
+	# # output_to_table(coverage_mhci, coverage_mhcii, separator='\t', filename=join(parameters['outputdirectory'],'final_table.tsv'))
