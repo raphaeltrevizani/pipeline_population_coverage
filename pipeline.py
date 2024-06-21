@@ -556,36 +556,3 @@ if __name__ == '__main__':
 		
 		with open(join(parameters['outputdirectory'], epitope+'.tsv'),'w') as outputfile:
 			outputfile.write(output_str)
-
-
-	# for epitope in coverage_mhci:
-	# 	headers = epitope + '\t' + 'Class-I' + '\t' + 'Class-II' + '\n'
-	# 	print(headers)
-	# 	loci_dict = coverage_mhci[epitope]
-
-	# 	print('\t'.join([loci for loci in loci_dict]))
-
-	# 	for key, val in loci_dict.items():
-	# 		row = f"{key},{val['name']},{val['price']},{val['quantity']}\n"
-
-	# 	# print(headers)
-	# 	# # Writing data
-	# 	# for key, val in nested_dict.items():
-	# 	# 	print(key, val)
-	# 		# row = f"{key},{val['name']},{val['price']},{val['quantity']}\n"
-	# 		# file.write(row)
-	# # for epitope in coverage_mhci:
-	# # 	output_str = epitope + '\t' + '\t' + 'Class-I' + '\t' + 'Class-II' + '\n'
-	# # 	output_str += 'Region' + '\t' + '\t'.join(coverage_mhci[epitope].values())
-	# # 	for loci in coverage_mhci[epitope]:
-	# # 		for subregion in coverage_mhci[epitope]:
-
-	# # 			output_str += subregion + ':\t' + coverage_mhci[epitope][subregion] + '\t' +  coverage_mhcii[epitope][subregion] + '\n'
-
-	# # 		with open(join(parameters['outputdirectory'], epitope), 'w') as outputfile:
-	# # 			outputfile.write(output_str)
-
-
-	# # print(coverage_per_epitope)
-
-	# # output_to_table(coverage_mhci, coverage_mhcii, separator='\t', filename=join(parameters['outputdirectory'],'final_table.tsv'))
