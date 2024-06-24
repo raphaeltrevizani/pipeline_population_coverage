@@ -284,6 +284,7 @@ def separate_hla_by_loci(hlas):
 # -------------------------------------
 def pop_coverage_single_region(epitope_regions, parameters, mhc_class, predictions):
 
+	numbers = [item[0] for item in epitope_regions]
 	sequences = [item[2] for item in epitope_regions]
 	
 	# Create the pop coverage input file
@@ -297,7 +298,7 @@ def pop_coverage_single_region(epitope_regions, parameters, mhc_class, predictio
 
 	individual_cover = dict()
 
-	for num, seq in enumerate(sequences, start=1):
+	for num, seq in zip(numbers, sequences):
 
 		hlas = pred_results[seq]
 
@@ -307,18 +308,18 @@ def pop_coverage_single_region(epitope_regions, parameters, mhc_class, predictio
 
 			if locus == 'any':
 				# Creates the inputfile for the pop coverage tool for one loci
-				inputfile = create_pop_coverage_input({seq:hlas}, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.' + str(num) + '.'  + locus + '.input', locus=False)
+				inputfile = create_pop_coverage_input({seq:hlas}, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.' + num + '.'  + locus + '.input', locus=False)
 
 			else:
 				# Creates the inputfile for the pop coverage tool for all loci
-				inputfile = create_pop_coverage_input({seq:hlas}, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.' + str(num) + '.'  + locus + '.input', locus=locus)
+				inputfile = create_pop_coverage_input({seq:hlas}, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.' + num + '.'  + locus + '.input', locus=locus)
 
 			# Run the pop coverage input file 
 			areas = parse_areas_file(parameters)
 			coverage = run_population_coverage(inputfile, parameters, mhc_class.upper(), areas)
 
 			cover_per_locus[locus] = coverage
-		individual_cover[str(num) + '-' + seq] = cover_per_locus
+		individual_cover[num + '-' + seq] = cover_per_locus
 
 
 	inputfile = create_pop_coverage_input(pred_results, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.original.input')
@@ -374,12 +375,12 @@ def pop_coverage_all_regions(joined_peptides, parameters, mhc_class, prediction)
 	for locus in loci:
 
 		# Creates the pop coverage input for each peptide individually
-		inputfile = create_pop_coverage_input(pred_results_combined, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.original.'+locus+'.input', locus)
+		inputfile = create_pop_coverage_input(pred_results_combined, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.allregions.'+locus+'.input', locus)
 		
 		# Run population coverage for the original sequences
 		cover_per_locus[locus] = run_population_coverage(inputfile, parameters, mhc_class, areas)
 
-	inputfile = create_pop_coverage_input(pred_results_combined, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.original.input')
+	inputfile = create_pop_coverage_input(pred_results_combined, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.allregions.input')
 	cover_per_locus['any'] = run_population_coverage(inputfile, parameters, mhc_class, areas)
 
 	return cover_per_locus
@@ -396,16 +397,16 @@ def run(input_file, parameters, mhc_class):
 	makedirs(parameters['temporarydirectory'], exist_ok=True)
 	
 	# Gets the peptides from the csv input file
-	fullregion = parse_csv_input(input_file)
+	epitope_items = parse_csv_input(input_file)
 
 	# Runs the MHC prediction tool specified in the parameter file
-	prediction = run_mhc_prediction(fullregion, parameters, mhc_class)
+	prediction = run_mhc_prediction(epitope_items, parameters, mhc_class)
 	
 	# Run the pop coverage tool for each peptide separately
-	coverage_dict = pop_coverage_single_region(fullregion, parameters, mhc_class, prediction)
+	coverage_dict = pop_coverage_single_region(epitope_items, parameters, mhc_class, prediction)
 
 	# Run pop coverage tool for all regions combined and add to dictionary
-	coverage_dict['all'] = pop_coverage_all_regions(fullregion, parameters, mhc_class, prediction)
+	coverage_dict['all'] = pop_coverage_all_regions(epitope_items, parameters, mhc_class, prediction)
 
 	return coverage_dict
 
@@ -515,9 +516,8 @@ def parse_csv_input(csv_file):
 
 	with open(csv_file) as csv:
 
-		# Skips the first 3 lines
-		for _ in range(3):
-				next(csv)
+		# Skips the first line (header)
+		next(csv)
 
 		separated = [line.rstrip().split(',') for line in csv.readlines()]
 	
