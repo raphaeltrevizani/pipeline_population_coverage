@@ -524,10 +524,6 @@ def parse_csv_input(csv_file):
 	# Merge overlapping peptides into one long sequence; outputs to fasta
 	merged = merge_items(separated)
 
-	# nmers = list()
-	# for item in merged:
-	# 	nmers += split_item_nmers(item, 15, 5)
-
 	return merged
 
 # -------------------------------------
