@@ -194,7 +194,14 @@ def run_mhc_prediction(inputdata, parameters, mhc_class):
 	
 	# Gets HLAs and respective sizes from HLA file
 	hlas, sizes = parse_hla_file(parameters, mhc_class)
-	
+
+	if mhc_class == 'ii':
+		nmers = list()
+		for item in inputdata:
+			nmers += split_item_nmers(item, 15, 5)
+
+		inputdata = nmers
+
 	# Get peptides sequences from input data
 	peptides = [item[2] for item in inputdata]
 
@@ -245,17 +252,17 @@ def run_population_coverage(inputfile, parameters, mhc_class, areas=['World']):
 	return coverage
 
 # -------------------------------------
-def combine_peptides(joined_data, dict_pep_hla):
+def combine_peptides(epitope_regions, predictions_pep_hla):
 
+	sequences = [item[2] for item in epitope_regions]
+	
 	# Empty dictionary where original sequences are keys that maps to a set of HLAs
-	sequences = [item[2] for item in joined_data]
 	combined_pep_hla = {seq:list() for seq in sequences}
 	
-	for key_ind in dict_pep_hla:
+	for key_ind in predictions_pep_hla:
 		for key_comb in combined_pep_hla:
 			if key_ind in key_comb:
-				combined_pep_hla[key_comb] += dict_pep_hla[key_ind].split(',')
-
+				combined_pep_hla[key_comb] += predictions_pep_hla[key_ind].split(',')
 
 	combined_pep_hla = {k:','.join(set(v)) for k,v in combined_pep_hla.items()}
 	
@@ -275,19 +282,18 @@ def separate_hla_by_loci(hlas):
 
 	return {loci:','.join(hlas) for loci, hlas in dict_loci.items()}
 # -------------------------------------
-def pop_coverage_single_region(joined_data, parameters, mhc_class, predictions):
+def pop_coverage_single_region(epitope_regions, parameters, mhc_class, predictions):
 
-	sequences = [item[2] for item in joined_data]
-
+	sequences = [item[2] for item in epitope_regions]
+	
 	# Create the pop coverage input file
 	pred_results = get_alleles_and_binders(predictions, parameters, mhc_class.lower())	
-
-	pred_results = combine_peptides(joined_data, pred_results)
-
+	pred_results = combine_peptides(epitope_regions, pred_results)
+	
 	if mhc_class.lower() == 'i':
-		loci = ['A', 'B']
+		loci = ['A', 'B', 'any']
 	if mhc_class.lower() == 'ii':
-		loci = ['DP', 'DQ', 'DR']
+		loci = ['DP', 'DQ', 'DR', 'any']
 
 	individual_cover = dict()
 
@@ -299,20 +305,23 @@ def pop_coverage_single_region(joined_data, parameters, mhc_class, predictions):
 		
 		for locus in loci:
 
+			if locus == 'any':
+				# Creates the inputfile for the pop coverage tool for one loci
+				inputfile = create_pop_coverage_input({seq:hlas}, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.' + str(num) + '.'  + locus + '.input', locus=False)
 
-			# Creates the inputfile for the pop coverage tool
-			inputfile = create_pop_coverage_input({seq:hlas}, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.' + str(num) + '.'  + locus + '.input', locus=locus)
-			
+			else:
+				# Creates the inputfile for the pop coverage tool for all loci
+				inputfile = create_pop_coverage_input({seq:hlas}, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.' + str(num) + '.'  + locus + '.input', locus=locus)
+
 			# Run the pop coverage input file 
 			areas = parse_areas_file(parameters)
 			coverage = run_population_coverage(inputfile, parameters, mhc_class.upper(), areas)
 
 			cover_per_locus[locus] = coverage
-
 		individual_cover[str(num) + '-' + seq] = cover_per_locus
 
+
 	inputfile = create_pop_coverage_input(pred_results, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.original.input')
-	cover_per_locus['any'] = run_population_coverage(inputfile, parameters, mhc_class, areas)
 
 	return individual_cover
 
@@ -387,16 +396,16 @@ def run(input_file, parameters, mhc_class):
 	makedirs(parameters['temporarydirectory'], exist_ok=True)
 	
 	# Gets the peptides from the csv input file
-	separated_peptides, joined_peptides = parse_csv_input(input_file)
+	fullregion = parse_csv_input(input_file)
 
-	# Runs the MHC-I prediction tool specified in the parameter file
-	prediction = run_mhc_prediction(separated_peptides, parameters, mhc_class)
+	# Runs the MHC prediction tool specified in the parameter file
+	prediction = run_mhc_prediction(fullregion, parameters, mhc_class)
 	
 	# Run the pop coverage tool for each peptide separately
-	coverage_dict = pop_coverage_single_region(joined_peptides, parameters, mhc_class, prediction)
+	coverage_dict = pop_coverage_single_region(fullregion, parameters, mhc_class, prediction)
 
 	# Run pop coverage tool for all regions combined and add to dictionary
-	coverage_dict['all'] = pop_coverage_all_regions(joined_peptides, parameters, mhc_class, prediction)
+	coverage_dict['all'] = pop_coverage_all_regions(fullregion, parameters, mhc_class, prediction)
 
 	return coverage_dict
 
@@ -481,13 +490,27 @@ def merge_items(data):
 	return [merge_sequences(item) for item in grouped_data]
 
 # -------------------------------------
+def split_item_nmers(item, nmer, step):
+
+	split_list = list()
+
+	num = item[0]
+	pos = int(item[1].split('-')[0])
+	seq = item[2]
+	
+	for i in range(0, len(seq)-nmer+1, step):
+		split_list.append([num, pos, seq[i:i+nmer]])
+		pos += step
+
+	return split_list
+# -------------------------------------
 def parse_csv_input(csv_file):
 
 	'''
 		Parse the .csv input file. 
 		Returns two lists of sequences:
-		1. the original 15-mers and 
-		2. the merged overlapping sequences
+		1. The merged overlapping sequences
+		2. The combined regions split into nmers
 	'''
 
 	with open(csv_file) as csv:
@@ -500,9 +523,12 @@ def parse_csv_input(csv_file):
 	
 	# Merge overlapping peptides into one long sequence; outputs to fasta
 	merged = merge_items(separated)
- 
-	return separated, merged
 
+	# nmers = list()
+	# for item in merged:
+	# 	nmers += split_item_nmers(item, 15, 5)
+
+	return merged
 
 # -------------------------------------
 if __name__ == '__main__':
