@@ -156,6 +156,7 @@ def get_alleles_and_binders(prediction, parameters, mhc_class):
 
 # -------------------------------------
 def filter_locus(alleles, locus):
+	''' From the alleles list (eg: HLA-A*02:01), keeps only those that pertain to arg:locus (eg: A)'''
 	return ','.join([hla for hla in alleles.split(',') if locus in hla.split('*')[0].split('-')[1]])
 # -------------------------------------
 def create_pop_coverage_input(pred_results, parameters, filename, locus=False): 
@@ -198,7 +199,7 @@ def run_mhc_prediction(inputdata, parameters, mhc_class):
 	if mhc_class == 'ii':
 		nmers = list()
 		for item in inputdata:
-			nmers += split_item_nmers(item, 15, 5)
+			nmers += split_item_nmers(item, int(parameters['mhciisizes']), int(parameters['nmerstep']))
 
 		inputdata = nmers
 
@@ -216,6 +217,9 @@ def run_mhc_prediction(inputdata, parameters, mhc_class):
 
 # -------------------------------------
 def parse_areas_file(parameters):
+	''' Reads the input file (data/areas.txt) and 
+		returns a list with the geographical regions 
+	'''
 	with open(parameters['areas']) as inputfile:
 		return [line.rstrip() for line in inputfile]
 	 
@@ -245,14 +249,19 @@ def run_population_coverage(inputfile, parameters, mhc_class, areas=['World']):
 
 		# Store the sequence and coverage in a dict
 		try:
-			coverage[area] = get_overall_coverage(result.stdout)
+			coverage[area] = get_overall_results(result.stdout)
 		except:
-			coverage[area] = 'NA'
+			coverage[area] = '\t\t'
 
 	return coverage
 
 # -------------------------------------
 def combine_peptides(epitope_regions, predictions_pep_hla):
+
+	'''
+		Combines the nmers from the predictions back into their
+		original regions. 
+	'''
 
 	sequences = [item[2] for item in epitope_regions]
 	
@@ -321,21 +330,23 @@ def pop_coverage_single_region(epitope_regions, parameters, mhc_class, predictio
 			cover_per_locus[locus] = coverage
 		individual_cover[num + '-' + seq] = cover_per_locus
 
-
-	inputfile = create_pop_coverage_input(pred_results, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.original.input')
+	# Why was that here?
+	# inputfile = create_pop_coverage_input(pred_results, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.original.input')
 
 	return individual_cover
 
 # -------------------------------------
-def get_overall_coverage(pop_coverage_output):
+def get_overall_results(pop_coverage_output):
 
 	'''
 		Parse the output of the IEDB population coverage standalone tool
 		str(pop_coverage_output) and returns a string containing the 
 		percent value of the total coverage
 	'''
-
-	return pop_coverage_output.split('\n')[2].split('\t')[1]
+	results = '\t'.join(pop_coverage_output.split('\n')[2].rstrip().split('\t')[1:])
+	if not results:
+		results = '\t\t'
+	return results
 
 # -------------------------------------
 def output_to_table(mhci, mhcii, separator, filename):
@@ -527,6 +538,36 @@ def parse_csv_input(csv_file):
 	return merged
 
 # -------------------------------------
+def output_to_files(coverage_mhci, coverage_mhcii, parameters):
+
+	for epitope in coverage_mhci:
+
+		output_str = ''
+		output_str += epitope + '\t' + 'Class-I' + 9*'\t' + 'Class-II' + '\n'
+
+		loci_mhci_dict = coverage_mhci[epitope]
+		loci_mhcii_dict = coverage_mhcii[epitope]
+		
+		loci_mhci_list = list(loci_mhci_dict.keys())
+		loci_mhcii_list = [l for l in loci_mhcii_dict]
+		
+		formatted_mhci_list = ''.join([3*str(locus+'\t') for locus in loci_mhci_list])
+		formatted_mhcii_list = ''.join([3*str(locus+'\t') for locus in loci_mhcii_list])	
+		
+		output_str += '\t' + formatted_mhci_list + formatted_mhcii_list  + '\n'
+		output_str += 'Region\t' + 7*'Coverage\tAv.no hits\tPC90\t' + '\n'
+
+		for region in loci_mhci_dict[loci_mhci_list[0]].keys():
+			output_str += region  + '\t'
+			for loci_mhci_list in loci_mhci_dict.keys():
+				output_str += loci_mhci_dict[loci_mhci_list][region] + '\t'
+			for loci_mhci_list in loci_mhcii_dict.keys():
+				output_str += loci_mhcii_dict[loci_mhci_list][region] + '\t'
+			output_str += '\n'
+
+			with open(join(parameters['outputdirectory'], epitope+'.tsv'),'w') as outputfile:
+				outputfile.write(output_str)
+# -------------------------------------
 if __name__ == '__main__':
 
 	import argparse
@@ -553,28 +594,4 @@ if __name__ == '__main__':
 	coverage_mhci  = run(input_file = args.i, parameters = parameters, mhc_class = 'I')
 	coverage_mhcii = run(input_file = args.i, parameters = parameters, mhc_class = 'II')
 
-	for epitope in coverage_mhci:
-
-		output_str = ''
-		output_str += epitope + '\t' + 'Class-I' + '\t\t\t' + 'Class-II' + '\n'
-		output_str += 'Region\t'
-
-		loci_dict = coverage_mhci[epitope]
-		loci_dictb = coverage_mhcii[epitope]
-		
-		loci = [l for l in loci_dict]
-		locib = [l for l in loci_dictb]
-		
-		output_str += '\t'.join(loci) + '\t'
-		output_str += '\t'.join(locib) + '\n'
-
-		for region in loci_dict[loci[0]].keys():
-			output_str += region  + '\t'
-			for loci in loci_dict.keys():
-				output_str += loci_dict[loci][region] + '\t'
-			for loci in loci_dictb.keys():
-				output_str += loci_dictb[loci][region] + '\t'
-			output_str += '\n'
-		
-		with open(join(parameters['outputdirectory'], epitope+'.tsv'),'w') as outputfile:
-			outputfile.write(output_str)
+	output_to_files(coverage_mhci, coverage_mhcii, parameters)
