@@ -172,7 +172,7 @@ def create_pop_coverage_input(pred_results, parameters, filename, locus=False):
 	pop_input_name = join(parameters['temporarydirectory'], filename)
 
 	# Writes to file
-	with open(pop_input_name, 'w') as f:
+	with open(pop_input_name, 'a+') as f:
 		for peptide, allele_list in pred_results.items():
 			if locus:
 				allele_list = filter_locus(allele_list, locus)
@@ -291,6 +291,70 @@ def separate_hla_by_loci(hlas):
 
 	return {loci:','.join(hlas) for loci, hlas in dict_loci.items()}
 # -------------------------------------
+def map_peptides_to_regions(regions, peptides):
+	dict_peptides_regions = dict()
+	
+	for peptide in peptides:
+		for item in regions:
+			if peptide in item[2]:
+				name = item[0] + '-' + item[2]
+				if name in dict_peptides_regions:
+					dict_peptides_regions[name] += [peptide]
+				else:
+					dict_peptides_regions[name] = [peptide]
+
+	return dict_peptides_regions
+# -------------------------------------
+def combine_cover_per_region(cover_per_region):
+	d_hits = dict()
+	d_pc90 = dict()
+	d_coverage = dict()
+	for epitope in cover_per_region:
+		
+		if epitope not in d_hits:
+			d_hits[epitope] = dict()
+			d_pc90[epitope] = dict()
+			d_coverage[epitope] = dict()
+
+		for peptide in cover_per_region[epitope]:
+			for locus in cover_per_region[epitope][peptide]:
+		
+				if locus not in d_hits[epitope]:
+					d_hits[epitope][locus] = dict()
+					d_pc90[epitope][locus] = dict()
+					d_coverage[epitope][locus] = dict()
+
+				for area in cover_per_region[epitope][peptide][locus]:
+					values = cover_per_region[epitope][peptide][locus][area].split('\t')
+
+					coverage = values[0].strip('\t')
+					hits = values[1].strip('\t')
+					pc90 = values[2].strip('\t')
+
+					if hits:
+						hits = float(hits)
+						pc90 = float(pc90)
+						if area not in d_hits[epitope][locus]:
+							d_hits[epitope][locus][area] = [hits]
+							d_pc90[epitope][locus][area] = [pc90]
+							d_coverage[epitope][locus][area] = coverage
+						else:
+							d_hits[epitope][locus][area] += [hits]
+							d_pc90[epitope][locus][area] += [pc90]
+
+	d_combined = dict()
+	for epitope in d_hits:
+		d_combined[epitope] = dict()
+		for locus in d_hits[epitope]:
+			d_combined[epitope][locus] = dict()
+			for area in d_hits[epitope][locus]:
+				hits = str(round(sum(d_hits[epitope][locus][area]),2))
+				pc90 = str(round(sum(d_pc90[epitope][locus][area]),2))
+				coverage = d_coverage[epitope][locus][area]
+				d_combined[epitope][locus][area] = coverage + '\t' + hits +'\t' + pc90
+
+	return d_combined
+# -------------------------------------
 def pop_coverage_single_region(epitope_regions, parameters, mhc_class, predictions):
 
 	numbers = [item[0] for item in epitope_regions]
@@ -298,8 +362,6 @@ def pop_coverage_single_region(epitope_regions, parameters, mhc_class, predictio
 	
 	# Create the pop coverage input file
 	pred_results = get_alleles_and_binders(predictions, parameters, mhc_class.lower())	
-	pred_results = combine_peptides(epitope_regions, pred_results)
-	
 	if mhc_class.lower() == 'i':
 		loci = ['A', 'B', 'any']
 	if mhc_class.lower() == 'ii':
@@ -307,30 +369,41 @@ def pop_coverage_single_region(epitope_regions, parameters, mhc_class, predictio
 
 	individual_cover = dict()
 
-	for num, seq in zip(numbers, sequences):
+	dict_regions_peptides = map_peptides_to_regions(epitope_regions, pred_results.keys())
+	
+	
+	# for num, seq in zip(numbers, sequences):
+	# for seq in pred_results.keys():
+	cover_per_region = dict()
+	for region in  dict_regions_peptides:
+		cover_per_sequence = dict()
+		for seq in dict_regions_peptides[region]:		
+			hlas = pred_results[seq]
+			num = region.split('-')[0]
+			cover_per_locus = dict()
+			
+			for locus in loci:
 
-		hlas = pred_results[seq]
+				if locus == 'any':
+					# Creates the inputfile for the pop coverage tool for one loci
+					inputfile = create_pop_coverage_input({seq:hlas}, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.' + num + '.'  + locus + '.input', locus=False)
 
-		cover_per_locus = dict()
-		
-		for locus in loci:
+				else:
+					# Creates the inputfile for the pop coverage tool for all loci
+					inputfile = create_pop_coverage_input({seq:hlas}, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.' + num + '.'  + locus + '.input', locus=locus)
 
-			if locus == 'any':
-				# Creates the inputfile for the pop coverage tool for one loci
-				inputfile = create_pop_coverage_input({seq:hlas}, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.' + num + '.'  + locus + '.input', locus=False)
+				# Run the pop coverage input file 
+				areas = parse_areas_file(parameters)
+				coverage = run_population_coverage(inputfile, parameters, mhc_class.upper(), areas)
 
-			else:
-				# Creates the inputfile for the pop coverage tool for all loci
-				inputfile = create_pop_coverage_input({seq:hlas}, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.' + num + '.'  + locus + '.input', locus=locus)
-
-			# Run the pop coverage input file 
-			areas = parse_areas_file(parameters)
-			coverage = run_population_coverage(inputfile, parameters, mhc_class.upper(), areas)
-
-			cover_per_locus[locus] = coverage
-		individual_cover[num + '-' + seq] = cover_per_locus
-
-	return individual_cover
+				# if locus not in cover_per_locus:
+				cover_per_locus[locus] = coverage
+				# else:
+				# 	cover_per_locus[locus] = combine_coverage(coverage_per_locus, coverage)
+			cover_per_sequence[seq]	= cover_per_locus
+		cover_per_region[region] = cover_per_sequence	
+	
+	return combine_cover_per_region(cover_per_region)
 
 # -------------------------------------
 def get_overall_results(pop_coverage_output):
@@ -589,6 +662,7 @@ if __name__ == '__main__':
 		rmtree(parameters['temporarydirectory'])
 
 	coverage_mhci  = run(input_file = args.i, parameters = parameters, mhc_class = 'I')
+	print(coverage_mhci)
+	exit(0)
 	coverage_mhcii = run(input_file = args.i, parameters = parameters, mhc_class = 'II')
-
-	output_to_files(coverage_mhci, coverage_mhcii, parameters)
+	# output_to_files(coverage_mhci, coverage_mhcii, parameters)
