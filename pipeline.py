@@ -330,9 +330,6 @@ def pop_coverage_single_region(epitope_regions, parameters, mhc_class, predictio
 			cover_per_locus[locus] = coverage
 		individual_cover[num + '-' + seq] = cover_per_locus
 
-	# Why was that here?
-	# inputfile = create_pop_coverage_input(pred_results, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.original.input')
-
 	return individual_cover
 
 # -------------------------------------
