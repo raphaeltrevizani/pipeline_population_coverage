@@ -377,12 +377,13 @@ def pop_coverage_single_region(epitope_regions, parameters, mhc_class, predictio
 	cover_per_region = dict()
 	for region in  dict_regions_peptides:
 		cover_per_sequence = dict()
-		for seq in dict_regions_peptides[region]:		
-			hlas = pred_results[seq]
-			num = region.split('-')[0]
-			cover_per_locus = dict()
-			
-			for locus in loci:
+		for locus in loci:
+	
+			for seq in dict_regions_peptides[region]:		
+				hlas = pred_results[seq]
+				num = region.split('-')[0]
+				cover_per_locus = dict()
+				
 
 				if locus == 'any':
 					# Creates the inputfile for the pop coverage tool for one loci
@@ -392,18 +393,18 @@ def pop_coverage_single_region(epitope_regions, parameters, mhc_class, predictio
 					# Creates the inputfile for the pop coverage tool for all loci
 					inputfile = create_pop_coverage_input({seq:hlas}, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.' + num + '.'  + locus + '.input', locus=locus)
 
-				# Run the pop coverage input file 
-				areas = parse_areas_file(parameters)
-				coverage = run_population_coverage(inputfile, parameters, mhc_class.upper(), areas)
+			# Run the pop coverage input file 
+			areas = parse_areas_file(parameters)
+			coverage = run_population_coverage(inputfile, parameters, mhc_class.upper(), areas)
 
-				# if locus not in cover_per_locus:
-				cover_per_locus[locus] = coverage
-				# else:
-				# 	cover_per_locus[locus] = combine_coverage(coverage_per_locus, coverage)
-			cover_per_sequence[seq]	= cover_per_locus
-		cover_per_region[region] = cover_per_sequence	
-	
-	return combine_cover_per_region(cover_per_region)
+			# if locus not in cover_per_locus:
+			cover_per_locus[locus] = coverage
+			# else:
+			# 	cover_per_locus[locus] = combine_coverage(coverage_per_locus, coverage)
+		# cover_per_sequence[seq]	= cover_per_locus
+		cover_per_region[region] = cover_per_locus
+	return cover_per_region
+	# return combine_cover_per_region(cover_per_region)
 
 # -------------------------------------
 def get_overall_results(pop_coverage_output):
@@ -663,6 +664,5 @@ if __name__ == '__main__':
 
 	coverage_mhci  = run(input_file = args.i, parameters = parameters, mhc_class = 'I')
 	print(coverage_mhci)
-	exit(0)
-	coverage_mhcii = run(input_file = args.i, parameters = parameters, mhc_class = 'II')
+	# coverage_mhcii = run(input_file = args.i, parameters = parameters, mhc_class = 'II')
 	# output_to_files(coverage_mhci, coverage_mhcii, parameters)
