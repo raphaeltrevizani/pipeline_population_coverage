@@ -15,5 +15,5 @@ Population coverage directory = population_coverage_standalone
 HLA-I file = data/hla_ref_set.class_i.txt
 HLA-II file = data/hla_ref_set.class_ii.txt
 areas = data/areas.txt
-temporary directory = data/temp_testing
+temporary directory = data/temp_testing2
 python path=python

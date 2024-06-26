@@ -256,28 +256,6 @@ def run_population_coverage(inputfile, parameters, mhc_class, areas=['World']):
 	return coverage
 
 # -------------------------------------
-def combine_peptides(epitope_regions, predictions_pep_hla):
-
-	'''
-		Combines the nmers from the predictions back into their
-		original regions. 
-	'''
-
-	sequences = [item[2] for item in epitope_regions]
-	
-	# Empty dictionary where original sequences are keys that maps to a set of HLAs
-	combined_pep_hla = {seq:list() for seq in sequences}
-	
-	for key_ind in predictions_pep_hla:
-		for key_comb in combined_pep_hla:
-			if key_ind in key_comb:
-				combined_pep_hla[key_comb] += predictions_pep_hla[key_ind].split(',')
-
-	combined_pep_hla = {k:','.join(set(v)) for k,v in combined_pep_hla.items()}
-	
-	return combined_pep_hla
-
-# -------------------------------------
 def separate_hla_by_loci(hlas):
 
 	dict_loci = dict()
@@ -357,9 +335,6 @@ def combine_cover_per_region(cover_per_region):
 # -------------------------------------
 def pop_coverage_single_region(epitope_regions, parameters, mhc_class, predictions):
 
-	numbers = [item[0] for item in epitope_regions]
-	sequences = [item[2] for item in epitope_regions]
-	
 	# Create the pop coverage input file
 	pred_results = get_alleles_and_binders(predictions, parameters, mhc_class.lower())	
 	if mhc_class.lower() == 'i':
@@ -367,16 +342,13 @@ def pop_coverage_single_region(epitope_regions, parameters, mhc_class, predictio
 	if mhc_class.lower() == 'ii':
 		loci = ['DP', 'DQ', 'DR', 'any']
 
-	individual_cover = dict()
 
 	dict_regions_peptides = map_peptides_to_regions(epitope_regions, pred_results.keys())
 	
 	
-	# for num, seq in zip(numbers, sequences):
-	# for seq in pred_results.keys():
 	cover_per_region = dict()
 	for region in  dict_regions_peptides:
-		cover_per_sequence = dict()
+
 		for locus in loci:
 	
 			for seq in dict_regions_peptides[region]:		
@@ -399,12 +371,13 @@ def pop_coverage_single_region(epitope_regions, parameters, mhc_class, predictio
 
 			# if locus not in cover_per_locus:
 			cover_per_locus[locus] = coverage
-			# else:
-			# 	cover_per_locus[locus] = combine_coverage(coverage_per_locus, coverage)
-		# cover_per_sequence[seq]	= cover_per_locus
-		cover_per_region[region] = cover_per_locus
+
+			if region not in cover_per_region:
+				cover_per_region[region] = cover_per_locus
+			else:
+				cover_per_region[region].update(cover_per_locus)
+
 	return cover_per_region
-	# return combine_cover_per_region(cover_per_region)
 
 # -------------------------------------
 def get_overall_results(pop_coverage_output):
@@ -435,15 +408,12 @@ def output_to_table(mhci, mhcii, separator, filename):
 	return 
 
 # -------------------------------------
-def pop_coverage_all_regions(joined_peptides, parameters, mhc_class, prediction):
+def pop_coverage_all_regions(epitope_regions, parameters, mhc_class, prediction):
 
 
 	# Isolate peptides and their respective binding alleles
 	pred_results = get_alleles_and_binders(prediction, parameters, mhc_class)
-
-	# Merges HLA sets according to overlapping peptides
-	pred_results_combined = combine_peptides(joined_peptides, pred_results)
-
+	
 	if mhc_class.lower() == 'i':
 		loci = ['A', 'B']
 	if mhc_class.lower() == 'ii':
@@ -455,14 +425,19 @@ def pop_coverage_all_regions(joined_peptides, parameters, mhc_class, prediction)
 	cover_per_locus = dict()
 
 	for locus in loci:
+		for seq in pred_results:
+			hlas = pred_results[seq]
 
-		# Creates the pop coverage input for each peptide individually
-		inputfile = create_pop_coverage_input(pred_results_combined, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.allregions.'+locus+'.input', locus)
-		
-		# Run population coverage for the original sequences
-		cover_per_locus[locus] = run_population_coverage(inputfile, parameters, mhc_class, areas)
+			# Creates the pop coverage input for each peptide individually
+			inputfile = create_pop_coverage_input({seq:hlas}, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.allregions.'+locus+'.input', locus)
+			
+			# Run population coverage for the original sequences
+			cover_per_locus[locus] = run_population_coverage(inputfile, parameters, mhc_class, areas)
+	
+	for seq in pred_results:
+		hlas = pred_results[seq]
+		inputfile = create_pop_coverage_input({seq:hlas}, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.allregions.input')
 
-	inputfile = create_pop_coverage_input(pred_results_combined, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.allregions.input')
 	cover_per_locus['any'] = run_population_coverage(inputfile, parameters, mhc_class, areas)
 
 	return cover_per_locus
@@ -489,7 +464,7 @@ def run(input_file, parameters, mhc_class):
 
 	# Run pop coverage tool for all regions combined and add to dictionary
 	coverage_dict['all'] = pop_coverage_all_regions(epitope_items, parameters, mhc_class, prediction)
-
+	
 	return coverage_dict
 
 # -------------------------------------
@@ -663,6 +638,5 @@ if __name__ == '__main__':
 		rmtree(parameters['temporarydirectory'])
 
 	coverage_mhci  = run(input_file = args.i, parameters = parameters, mhc_class = 'I')
-	print(coverage_mhci)
-	# coverage_mhcii = run(input_file = args.i, parameters = parameters, mhc_class = 'II')
-	# output_to_files(coverage_mhci, coverage_mhcii, parameters)
+	coverage_mhcii = run(input_file = args.i, parameters = parameters, mhc_class = 'II')
+	output_to_files(coverage_mhci, coverage_mhcii, parameters)
