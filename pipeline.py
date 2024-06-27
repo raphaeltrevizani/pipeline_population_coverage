@@ -2,7 +2,7 @@
 
 import subprocess
 from os.path import join, exists
-from os import makedirs
+from os import makedirs, rename
 from shutil import rmtree
 # -------------------------------------	
 def parse_parameters(inputfile):
@@ -235,14 +235,22 @@ def run_population_coverage(inputfile, parameters, mhc_class, areas=['World']):
 
 	mhc_class = mhc_class.upper()
 
-	method_path = join(parameters['populationcoveragedirectory'], 'calculate_population_coverage.py')
+	if parameters['outputgraph'] != 'true':
+		method_dir = join(parameters['populationcoveragedirectory'], 'no_graph')
+	else:
+		method_dir = join(parameters['populationcoveragedirectory'], 'graph')
+		fig_dir = join(parameters['outputdirectory'], 'figures')
+		makedirs(fig_dir, exist_ok=True)
 
+	method_path = join(method_dir, 'calculate_population_coverage.py')
+	
 	py = parameters['pythonpath']
 
 	# Runs the population tool for each sub-area
 	coverage = dict()
 
 	for area in areas:
+		
 		command = py + ' ' + method_path + ' -f ' + inputfile + ' -p ' + '"' + area + '"' +  ' -c ' + mhc_class + ' --plot ' + parameters['outputdirectory']
 
 		result = subprocess.run(command, shell=True, capture_output=True, text=True)
@@ -250,6 +258,18 @@ def run_population_coverage(inputfile, parameters, mhc_class, areas=['World']):
 		# Store the sequence and coverage in a dict
 		try:
 			coverage[area] = get_overall_results(result.stdout)
+
+			if parameters['outputgraph'] == 'true':
+				fmt_area = area.replace(' ', '_').lower()
+				old_graphfile = join(parameters['outputdirectory'], 'popcov_' + fmt_area + '_' + mhc_class.lower() + '.png')
+				fields = inputfile.split('.')   
+				region = fields[1]
+				locus  = fields[2]
+				newfilename = fmt_area + '_MHC' + mhc_class + '_' + locus + '_' + region + '.png'
+				new_graphfile = join(fig_dir, newfilename)
+				rename(old_graphfile, new_graphfile)
+				print('renamed', old_graphfile, new_graphfile)
+
 		except:
 			coverage[area] = '\t\t'
 
