@@ -10,6 +10,8 @@ MHC-II sizes = 15
 MHC-I threshold = 500
 MHC-II threshold = 500
 N-mer Step = 5
+output graph = true
+
 # More advanced options
 Population coverage directory = population_coverage_standalone
 HLA-I file = data/hla_ref_set.class_i.txt

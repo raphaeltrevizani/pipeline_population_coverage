@@ -1,7 +1,8 @@
 from __future__ import print_function
 
-import sys, os
-from itertools import product
+import copy, sys, os
+import itertools
+from itertools import product, permutations
 from collections import OrderedDict, namedtuple, defaultdict
 sys.path.append( os.path.dirname(__file__) )
 from util import *
@@ -65,23 +66,22 @@ class PopulationCoverage(object):
                 sys.exit(0)
 
         class_population_combo = list(product( mhc_class, population ))
-
+        
         self.set_file_content(filename)
         self.validate_input_file()
         # For python3, make datatype as list instead of zip object
         self.input_epitope_allele_list = list(self.input_epitope_allele_list)
-        
+
         population_map = self.get_population_map(class_population_combo)
         user_defined_population_combos = list(filter(lambda combo:combo[1].startswith('user_'), class_population_combo))
         if user_defined_population_combos and user_defined_population_data_lines:
             user_defined_population_map = self.get_user_defined_population_map(user_defined_population_combos, user_defined_population_data_lines)
             population_map.update(user_defined_population_map)
 
-        # print( 'population_map: %s' % population_map)
+        #print( 'population_map: %s' % population_map)
         for population, class_map in population_map.items():
             for mhc_class, coverage_data in class_map.items():
                 frequency = self.get_frequency(coverage_data) 
-                
                 result_map = {}
                 if frequency:
                     result_map = frequency[0]
@@ -129,7 +129,7 @@ class PopulationCoverage(object):
 
         total_hits = self.count_hits(locus_map)
         frequency = self.compute_frequency(locus_map, total_hits)
-        
+
         # Sort dictionary inside of frequency
         sorted_frequency = []
         for each_dict in frequency : sorted_frequency.append( dict(sorted(each_dict.items())) )
@@ -255,7 +255,6 @@ class PopulationCoverage(object):
             for hit2, genotype2 in frequency_map.items():
                 total_hit = hit1 + hit2
                 total_frequency = genotype1 * genotype2
-
                 if total_hit not in merged_locus:
                     merged_locus[total_hit] = total_frequency
                 else:
@@ -274,7 +273,6 @@ class PopulationCoverage(object):
                     if tupleized_allele.count(allele_name):
                         number_hit += 1
                 total_hits[allele_name] = number_hit
-
         return total_hits
 
     def compute_graph_frequency(self, merged_data):
@@ -282,7 +280,7 @@ class PopulationCoverage(object):
 
         epitope_hits = merged_data.keys()
         y = merged_data.values()
-        
+
         last_epitope_hit = len(epitope_hits)
 
         if epitope_hits:
@@ -301,7 +299,7 @@ class PopulationCoverage(object):
         # TODO: code below must change according to above _x, _y values
         _merged_data = dict((k, v * 100) for k, v in _merged_data.items())
         percent_individuals = _merged_data.values()
-        
+
         cumulative_coverage = []
         for k, v in sorted(_merged_data.items(), reverse=True):
             if not cumulative_coverage:
@@ -309,7 +307,7 @@ class PopulationCoverage(object):
             else:
                 new_v = v + cumulative_coverage[-1]
                 cumulative_coverage.append(new_v)
-        
+
         pc90 = self.calculate_pc90(cumulative_coverage)
         coverage = self.calculate_frequency_coverage(_x, _y)
         average_hit = self.compute_average_epitope_hit(_x, _y)
@@ -388,9 +386,9 @@ class PopulationCoverage(object):
         adjusted_coverage_data = OrderedDict()
 
         for locus, allele_genotype_map in coverage_data.items():
-            # print('locus : %s' %(locus))
-            # print('allele_genotype_map_count : %i' %(len(allele_genotype_map)))
-            # print('allele_genotype_map : %s' %(allele_genotype_map))
+            #print('locus : %s' %(locus))
+            #print('allele_genotype_map_count : %i' %(len(allele_genotype_map)))
+            #print('allele_genotype_map : %s' %(allele_genotype_map))
 
             allele_list = []
             genotype_list = []

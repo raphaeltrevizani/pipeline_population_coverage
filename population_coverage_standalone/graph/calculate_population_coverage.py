@@ -46,17 +46,17 @@ def calculate(args):
             print("argument -f/--file: expected one argument\n{}\n"
                   "\nfor detail usage: $ python {} --help".format(msg(), _prog))
             sys.exit(0)
+
         pcal = PopulationCoverage()
-        
         result, negative = pcal.calculate_coverage(population=population, mhc_class=mhc_class, filename=args.filename)
-        
+
         print_chart_table(result)
 
         if args.path:
             from pathlib import Path
             path = Path(args.path)
             path.mkdir(parents=True, exist_ok=True)
-            # generate_plot(result, args.path)
+            generate_plot(result, args.path)
 
         if negative:
             print("note: data for following combinations are not available, and therefore skipped")

@@ -122,59 +122,59 @@ def replace_w_char(s):
     return re.sub(r"_+", "_", s)
 
 
-# def generate_plot(result=None, plot_path=None):
-#     import numpy as np
-#     import matplotlib.cbook
-#     matplotlib.use('Agg')
-#     from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-#     from matplotlib.ticker import MultipleLocator, FormatStrFormatter
-#     from matplotlib.figure import Figure
+def generate_plot(result=None, plot_path=None):
+    import numpy as np
+    import matplotlib.cbook
+    matplotlib.use('Agg')
+    from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+    from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+    from matplotlib.figure import Figure
 
-#     if not os.path.isdir(plot_path):
-#         print("plot directory doesn't exist!")
-#         sys.exit(0)
+    if not os.path.isdir(plot_path):
+        print("plot directory doesn't exist!")
+        sys.exit(0)
 
-#     for rd in result:
-#         fig = Figure(figsize=(6.5, 4.0), facecolor="#F5F5F5")
-#         ax = fig.add_subplot(1, 1, 1)
+    for rd in result:
+        fig = Figure(figsize=(6.5, 4.0), facecolor="#F5F5F5")
+        ax = fig.add_subplot(1, 1, 1)
 
-#         population = rd.get("population")
-#         mhc_class = rd.get("mhc_class")
-#         epitope_hits = rd.get("epitope_hits")
-#         percent_individuals = rd.get("percent_individuals")
-#         percent_individuals = [pi*100 for pi in percent_individuals]
-#         cumulative_coverage = rd.get("cumulative_coverage")
+        population = rd.get("population")
+        mhc_class = rd.get("mhc_class")
+        epitope_hits = rd.get("epitope_hits")
+        percent_individuals = rd.get("percent_individuals")
+        percent_individuals = [pi*100 for pi in percent_individuals]
+        cumulative_coverage = rd.get("cumulative_coverage")
 
-#         ax.bar(epitope_hits, percent_individuals, color="#6698FF", align="center")
-#         ax.set_title("{} - Class {} Coverage".format(population, mhc_class), fontsize=11)
-#         ax.set_xlabel("Number of epitope hits/HLA combination recognized", fontsize=9)
-#         ax.set_ylabel("Percent of individuals", fontsize=9)
+        ax.bar(epitope_hits, percent_individuals, color="#6698FF", align="center")
+        ax.set_title("{} - Class {} Coverage".format(population, mhc_class), fontsize=11)
+        ax.set_xlabel("Number of epitope hits/HLA combination recognized", fontsize=9)
+        ax.set_ylabel("Percent of individuals", fontsize=9)
 
-#         ax.set_xticks(np.arange(len(epitope_hits)))
-#         ax.set_xticklabels(epitope_hits)
+        ax.set_xticks(np.arange(len(epitope_hits)))
+        ax.set_xticklabels(epitope_hits)
 
-#         ax.set_ylim(ymax=max(percent_individuals) + 15)
-#         ax.xaxis.set_tick_params(labelsize=9)
-#         ax.yaxis.set_tick_params(labelsize=9)
-#         ax.grid(True)
+        ax.set_ylim(ymax=max(percent_individuals) + 15)
+        ax.xaxis.set_tick_params(labelsize=9)
+        ax.yaxis.set_tick_params(labelsize=9)
+        ax.grid(True)
 
-#         ax2 = ax.twinx()
-#         ax2.set_xlim(left=-0.55)
-#         ax2.set_ylim(0, 100)
-#         ax2.set_ylabel("Cumulative percent of population coverage", fontsize=9)
-#         ax2.yaxis.set_tick_params(labelsize=9)
-#         majorLocator = MultipleLocator(10)
-#         majorFormatter = FormatStrFormatter("%d")
-#         minorLocator = MultipleLocator(5)
-#         ax2.yaxis.set_major_locator(majorLocator)
-#         ax2.yaxis.set_major_formatter(majorFormatter)
-#         ax2.axhline(y=90, color="r", linewidth=1, label="Threshold")
-#         ax2.plot(ax.get_xticks(), cumulative_coverage, linestyle="-", marker="o", markerfacecolor="yellow", linewidth=1.5)
+        ax2 = ax.twinx()
+        ax2.set_xlim(left=-0.55)
+        ax2.set_ylim(0, 100)
+        ax2.set_ylabel("Cumulative percent of population coverage", fontsize=9)
+        ax2.yaxis.set_tick_params(labelsize=9)
+        majorLocator = MultipleLocator(10)
+        majorFormatter = FormatStrFormatter("%d")
+        minorLocator = MultipleLocator(5)
+        ax2.yaxis.set_major_locator(majorLocator)
+        ax2.yaxis.set_major_formatter(majorFormatter)
+        ax2.axhline(y=90, color="r", linewidth=1, label="Threshold")
+        ax2.plot(ax.get_xticks(), cumulative_coverage, linestyle="-", marker="o", markerfacecolor="yellow", linewidth=1.5)
 
-#         canvas = FigureCanvas(fig)
-#         canvas.print_figure("{}/popcov_{}_{}.png".format(plot_path, replace_w_char(population.lower()), replace_w_char(mhc_class.lower())))
+        canvas = FigureCanvas(fig)
+        canvas.print_figure("{}/popcov_{}_{}.png".format(plot_path, replace_w_char(population.lower()), replace_w_char(mhc_class.lower())))
 
-#     print("* A plot has been generated in '{}' directory with <population>_<mhc_class> suffixed.".format(plot_path))
+    print("* A plot has been generated in '{}' directory with <population>_<mhc_class> suffixed.".format(plot_path))
 
 
 def get_available_allele_names(population=None, mhc_class=None):
