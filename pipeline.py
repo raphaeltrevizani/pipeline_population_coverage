@@ -209,11 +209,28 @@ def run_mhc_prediction(inputdata, parameters, mhc_class):
 	# Add flanking characters needed by the API query
 	peptides = ''.join(['%3Epeptide' + str(num) + '%0A' + pep.rstrip() + '%0A' for num, pep in enumerate(peptides, start = 1)])
 
-	command = "curl --data \"method=" + parameters['mhc'+mhc_class+'method'] + "&sequence_text="+peptides+"&allele=" + hlas + "&length="+ sizes +"\" http://tools-cluster-interface.iedb.org/tools_api/mhc"+mhc_class+"/"
 
-	result = subprocess.run(command, shell=True, capture_output=True, text=True)
+	for attempt in range(1, 4): # 3 attempts to connect to the API
 
-	return result.stdout
+		success_connection_to_API = False
+
+		command = "curl --data \"method=" + parameters['mhc'+mhc_class+'method'] + "&sequence_text="+peptides+"&allele=" + hlas + "&length="+ sizes +"\" http://tools-cluster-interface.iedb.org/tools_api/mhc"+mhc_class+"/"
+
+		result = subprocess.run(command, shell=True, capture_output=True, text=True).stdout
+
+		if result.strip('\t\n ') != '':
+			success_connection_to_API = True
+		
+		if success_connection_to_API:			
+			break
+		else:
+			print(f"Failed to connect to the IEDB API. Attempt {attempt}.")
+
+		if attempt == 3:
+			print('Failed to connect to the API after 3 attempts. Exiting.')
+			exit(0)
+
+	return result
 
 # -------------------------------------
 def parse_areas_file(parameters):
@@ -268,7 +285,6 @@ def run_population_coverage(inputfile, parameters, mhc_class, areas=['World']):
 				newfilename = fmt_area + '_MHC' + mhc_class + '_' + locus + '_' + region + '.png'
 				new_graphfile = join(fig_dir, newfilename)
 				rename(old_graphfile, new_graphfile)
-				print('renamed', old_graphfile, new_graphfile)
 
 		except:
 			coverage[area] = '\t\t'

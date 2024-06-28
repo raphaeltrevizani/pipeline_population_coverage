@@ -1,6 +1,6 @@
 
 # Adjust this accordingly
-output directory = results
+output directory = results2
  
 # Set parameters 
 MHC-I method  = netmhcpan_ba
