@@ -392,7 +392,6 @@ def pop_coverage_single_region(epitope_regions, parameters, mhc_class, predictio
 				num = region.split('-')[0]
 				cover_per_locus = dict()
 				
-
 				if locus == 'any':
 					# Creates the inputfile for the pop coverage tool for one loci
 					inputfile = create_pop_coverage_input({seq:hlas}, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.' + num + '.'  + locus + '.input', locus=False)
@@ -458,9 +457,10 @@ def pop_coverage_all_regions(epitope_regions, parameters, mhc_class, prediction)
 	# Get all major sub areas for the globe 
 	areas = parse_areas_file(parameters)
 
-	cover_per_locus = dict()
+	cover_per_locus = empty_dict(loci)
 
 	for locus in loci:
+		
 		for seq in pred_results:
 			hlas = pred_results[seq]
 
@@ -470,11 +470,16 @@ def pop_coverage_all_regions(epitope_regions, parameters, mhc_class, prediction)
 			# Run population coverage for the original sequences
 			cover_per_locus[locus] = run_population_coverage(inputfile, parameters, mhc_class, areas)
 	
+	inputfile = False
 	for seq in pred_results:
 		hlas = pred_results[seq]
 		inputfile = create_pop_coverage_input({seq:hlas}, parameters, 'pop_coverage_mhc' + mhc_class.lower() + '.allregions.input')
 
-	cover_per_locus['any'] = run_population_coverage(inputfile, parameters, mhc_class, areas)
+	if inputfile:
+		cover_per_locus['any'] = run_population_coverage(inputfile, parameters, mhc_class, areas)
+	else:
+		# cover_per_locus['any'] = '\t\t' #EMPTY DICTIONARY
+		cover_per_locus['any'] = empty_dict_regions()
 
 	return cover_per_locus
 
@@ -620,7 +625,30 @@ def parse_csv_input(csv_file):
 	return merged
 
 # -------------------------------------
+def empty_dict_regions():
+	return {'Central Africa': '\t\t', 'Central America': '\t\t', 'East Africa': '\t\t', 'East Asia': '\t\t', 'Europe': '\t\t', 'North Africa': '\t\t', 'North America': '\t\t', 'Northeast Asia': '\t\t', 'Oceania': '\t\t', 'South Africa': '\t\t', 'South America': '\t\t', 'South Asia': '\t\t', 'Southeast Asia': '\t\t', 'Southwest Asia': '\t\t', 'West Africa': '\t\t', 'West Indies': '\t\t', 'World': '\t\t'}
+
+# -------------------------------------
+def empty_dict(loci):
+	d = {}
+	for locus in loci:
+		d[locus] = empty_dict_regions()
+	return d
+# -------------------------------------
 def output_to_files(coverage_mhci, coverage_mhcii, parameters):
+
+	regions_mhci = set(coverage_mhci.keys())
+	regions_mhcii = set(coverage_mhcii.keys())
+
+	mhci_missing_regions = regions_mhcii - regions_mhci
+	mhcii_missing_regions = regions_mhci - regions_mhcii
+
+	for region in mhci_missing_regions:
+		coverage_mhci[region] = empty_dict(['A', 'B', 'any'])
+	
+	for region in mhcii_missing_regions:
+		coverage_mhcii[region] = empty_dict(['DP', 'DQ', 'DR', 'any'])
+
 
 	for epitope in coverage_mhci:
 
