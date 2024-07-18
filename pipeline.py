@@ -1,9 +1,10 @@
 #!/usr/bin/python
 
 import subprocess
-from os.path import join, exists
+from os.path import join, exists, getsize
 from os import makedirs, rename
 from shutil import rmtree
+
 # -------------------------------------	
 def parse_parameters(inputfile):
 
@@ -484,6 +485,50 @@ def pop_coverage_all_regions(epitope_regions, parameters, mhc_class, prediction)
 	return cover_per_locus
 
 # -------------------------------------
+def save_prediction(prediction, parameters, mhc_class, name=''):
+	with open(name, 'w') as pred_save:
+		pred_save.write(prediction)
+
+# -------------------------------------
+def prediction_exists(file_path):
+
+	# Check if file exists and is not empty
+	if exists(file_path) and getsize(file_path) > 0:
+		return True
+	else:
+		return False
+# -------------------------------------
+def parse_prediction_file(prediction_file_name):
+	with open(prediction_file_name) as inputfile:
+		return ''.join(inputfile.readlines())
+
+
+# -------------------------------------
+def run_API_prediction(parameters, mhc_class, epitope_items):
+
+	# Check if the prediction files exist
+	prediction_file_name = join(parameters['temporarydirectory'], 'MHC-' + mhc_class + '_' + epitope_items[0][2] + '.tsv')
+
+	# Checks if user wants to reuse existing prediction
+	answer = 'n'
+	if prediction_exists(prediction_file_name):
+		print('Prediction file', prediction_file_name, 'found. Do you want to use it (y/n)?', end=' ') 
+		answer = input()
+
+	# Reuses existing prediction
+	if answer.lower() == 'y':
+		prediction = parse_prediction_file(prediction_file_name)
+	
+	# Not reusing prediction: rerunning it.
+	else:
+
+		# Runs the MHC prediction tool specified in the parameter file
+		prediction = run_mhc_prediction(epitope_items, parameters, mhc_class)
+		# Save prediction to file
+		save_prediction(prediction, parameters, mhc_class, name=prediction_file_name)
+	
+	return prediction
+# -------------------------------------
 def run(input_file, parameters, mhc_class):
 
 	'''
@@ -497,9 +542,12 @@ def run(input_file, parameters, mhc_class):
 	# Gets the peptides from the csv input file
 	epitope_items = parse_csv_input(input_file)
 
-	# Runs the MHC prediction tool specified in the parameter file
-	prediction = run_mhc_prediction(epitope_items, parameters, mhc_class)
-	
+	# Use the API to run predictions
+	prediction = ''
+	while(prediction == ''):
+		print(f'Using API to run predictions for MHC-{mhc_class}')
+		prediction = run_API_prediction(parameters, mhc_class, epitope_items)
+
 	# Run the pop coverage tool for each peptide separately
 	coverage_dict = pop_coverage_single_region(epitope_items, parameters, mhc_class, prediction)
 
@@ -678,6 +726,7 @@ def output_to_files(coverage_mhci, coverage_mhcii, parameters):
 			with open(join(parameters['outputdirectory'], epitope+'.tsv'),'w') as outputfile:
 				outputfile.write(output_str)
 # -------------------------------------
+
 if __name__ == '__main__':
 
 	import argparse
@@ -697,9 +746,9 @@ if __name__ == '__main__':
 	outputdir = parameters['outputdirectory']
 	makedirs(outputdir, exist_ok=True)
 	
-	# Clears old tmp dir if it exists
-	if exists(parameters['temporarydirectory']):
-		rmtree(parameters['temporarydirectory'])
+	# # Clears old tmp dir if it exists
+	# if exists(parameters['temporarydirectory']):
+	# 	rmtree(parameters['temporarydirectory'])
 
 	coverage_mhci  = run(input_file = args.i, parameters = parameters, mhc_class = 'I')
 	coverage_mhcii = run(input_file = args.i, parameters = parameters, mhc_class = 'II')

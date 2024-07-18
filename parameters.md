@@ -1,6 +1,6 @@
 
 # Adjust this accordingly
-output directory = results
+output directory = results_smalltest_saving
  
 # Set parameters 
 MHC-I method  = netmhcpan_ba
@@ -10,7 +10,7 @@ MHC-II sizes = 15
 MHC-I threshold = 500
 MHC-II threshold = 500
 N-mer Step = 5
-output graph = true
+output graph = false
 
 # More advanced options
 Population coverage directory = population_coverage_standalone
