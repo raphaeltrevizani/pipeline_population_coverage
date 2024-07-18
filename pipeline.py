@@ -4,7 +4,7 @@ import subprocess
 from os.path import join, exists, getsize
 from os import makedirs, rename
 from shutil import rmtree
-
+import pickle
 # -------------------------------------	
 def parse_parameters(inputfile):
 
@@ -490,7 +490,7 @@ def save_prediction(prediction, parameters, mhc_class, name=''):
 		pred_save.write(prediction)
 
 # -------------------------------------
-def prediction_exists(file_path):
+def file_exists(file_path):
 
 	# Check if file exists and is not empty
 	if exists(file_path) and getsize(file_path) > 0:
@@ -511,7 +511,7 @@ def run_API_prediction(parameters, mhc_class, epitope_items):
 
 	# Checks if user wants to reuse existing prediction
 	answer = 'n'
-	if prediction_exists(prediction_file_name):
+	if file_exists(prediction_file_name):
 		print('Prediction file', prediction_file_name, 'found. Do you want to use it (y/n)?', end=' ') 
 		answer = input()
 
@@ -529,6 +529,21 @@ def run_API_prediction(parameters, mhc_class, epitope_items):
 	
 	return prediction
 # -------------------------------------
+def run_mhc_prediction_and_coverage(parameters, mhc_class, epitope_items):
+	# Use the API to run predictions
+	prediction = ''
+	while(prediction == ''):
+		prediction = run_API_prediction(parameters, mhc_class, epitope_items)
+
+	# Run the pop coverage tool for each peptide separately
+	coverage_dict = pop_coverage_single_region(epitope_items, parameters, mhc_class, prediction)
+
+	# Run pop coverage tool for all regions combined and add to dictionary
+	coverage_dict['all'] = pop_coverage_all_regions(epitope_items, parameters, mhc_class, prediction)
+
+	return coverage_dict
+# -------------------------------------
+
 def run(input_file, parameters, mhc_class):
 
 	'''
@@ -541,19 +556,22 @@ def run(input_file, parameters, mhc_class):
 	
 	# Gets the peptides from the csv input file
 	epitope_items = parse_csv_input(input_file)
-
-	# Use the API to run predictions
-	prediction = ''
-	while(prediction == ''):
-		print(f'Using API to run predictions for MHC-{mhc_class}')
-		prediction = run_API_prediction(parameters, mhc_class, epitope_items)
-
-	# Run the pop coverage tool for each peptide separately
-	coverage_dict = pop_coverage_single_region(epitope_items, parameters, mhc_class, prediction)
-
-	# Run pop coverage tool for all regions combined and add to dictionary
-	coverage_dict['all'] = pop_coverage_all_regions(epitope_items, parameters, mhc_class, prediction)
 	
+	coverage_file_name = join(parameters['temporarydirectory'], 'popcov-' + mhc_class + '_' + epitope_items[0][2] + '.tsv')
+	answer = 'n'
+	if file_exists(coverage_file_name):
+		print('Coverage file', coverage_file_name, 'found. Do you want to use it (y/n)?', end=' ') 
+		answer = input()
+	
+	if answer.lower() == 'y':
+		with open(coverage_file_name, 'rb') as file:
+			coverage_dict = pickle.load(file)
+
+	else:
+		coverage_dict = run_mhc_prediction_and_coverage(parameters, mhc_class, epitope_items)
+		with open(coverage_file_name, 'wb') as pfile:
+			pickle.dump(coverage_dict, pfile)
+
 	return coverage_dict
 
 # -------------------------------------

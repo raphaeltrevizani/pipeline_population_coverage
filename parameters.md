@@ -1,6 +1,6 @@
 
 # Adjust this accordingly
-output directory = results_smalltest_saving
+output directory = results_smalltest_final
  
 # Set parameters 
 MHC-I method  = netmhcpan_ba
@@ -17,5 +17,5 @@ Population coverage directory = population_coverage_standalone
 HLA-I file = data/hla_ref_set.class_i.txt
 HLA-II file = data/hla_ref_set.class_ii.txt
 areas = data/areas.txt
-temporary directory = data/temp
+temporary directory = data/temp_pickle
 python path=python
