@@ -19,3 +19,5 @@ HLA-II file = data/hla_ref_set.class_ii.txt
 areas = data/areas.txt
 temporary directory = data/temp_pickle
 python path=python
+MHC-I predictor directory = /home/trevizani/prog/mhc_i
+MHC-II predictor directory = /home/trevizani/prog/mhc_ii

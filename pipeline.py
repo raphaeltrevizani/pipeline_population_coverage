@@ -186,10 +186,64 @@ def create_pop_coverage_input(pred_results, parameters, filename, locus=False):
 
 # -------------------------------------
 def run_mhc_prediction(inputdata, parameters, mhc_class):
+
+	'''
+		Calls MHC-I prediction tool from the IEDB
+		standalone tools. Returns a string with 
+		all predictions.
+	'''
+	
+	fasta_peptides = ['>_\n' + item[2] for item in inputdata]
+
+	py = parameters['pythonpath']
+
+	inputfile = join(parameters['temporarydirectory'], 'mhc' + mhc_class.lower() + '.pred.input.txt')
+
+	with open(inputfile,'w') as inp:
+		inp.write('\n'.join(fasta_peptides))
+
+	if mhc_class.upper() == 'I':
+					
+		# Path to MHC-I predictor
+		mhci_dir = parameters['mhcipredictordirectory']
+
+		# Gets HLAs and respective sizes from HLA-I file
+		hlas, sizes = parse_hla_i_file(parameters)
+
+		# Run the IEDB prediction tool
+		method_path = join(mhci_dir + '/src/predict_binding.py')
+		command = py + ' ' + method_path + ' ' + parameters['mhcimethod'] + ' ' + hlas + ' ' + sizes + ' ' + inputfile
+		result = subprocess.run(command, shell=True, capture_output=True, text=True).stdout
+
+	if mhc_class.upper() == 'II':
+
+		# Path to MHC-I predictor
+		mhcii_dir = parameters['mhciipredictordirectory']
+
+		# Gets HLAs and respective sizes from HLA-I file
+		hlas, sizes = parse_hla_ii_file(parameters)
+
+		# Run the IEDB prediction tool
+		method_path = join(mhcii_dir, 'mhc_II_binding.py')
+		command = py + ' ' + method_path + ' ' + parameters['mhciimethod'] + ' ' + hlas + ' ' + inputfile + ' ' + sizes
+
+		result = subprocess.run(command, shell=True, capture_output=True, text=True).stdout
+
+
+	return result
+
+# -------------------------------------
+def api_run_mhc_prediction(inputdata, parameters, mhc_class):
 	'''
 		Uses the API to predict binders of arg:mhc_class for each 
 		arg:inputdata
 	'''
+
+	# try: 
+	# 	return local_run_mhc_prediction(inputdata, parameters, mhc_class)
+	# except:
+	# 	print('Attempting to use IEDB-API to run')
+
 
 	# Ensures the mhc class is not capitalized
 	mhc_class = mhc_class.lower()
@@ -197,16 +251,16 @@ def run_mhc_prediction(inputdata, parameters, mhc_class):
 	# Gets HLAs and respective sizes from HLA file
 	hlas, sizes = parse_hla_file(parameters, mhc_class)
 
-	if mhc_class == 'ii':
-		nmers = list()
-		for item in inputdata:
-			nmers += split_item_nmers(item, int(parameters['mhciisizes']), int(parameters['nmerstep']))
 
-		inputdata = nmers
+	nmers = list()
+	for item in inputdata:
+		nmers += split_item_nmers(item, int(parameters['mhciisizes']), int(parameters['nmerstep']))
+
+	inputdata = nmers
 
 	# Get peptides sequences from input data
 	peptides = [item[2] for item in inputdata]
-
+	
 	# Add flanking characters needed by the API query
 	peptides = ''.join(['%3Epeptide' + str(num) + '%0A' + pep.rstrip() + '%0A' for num, pep in enumerate(peptides, start = 1)])
 
@@ -229,8 +283,10 @@ def run_mhc_prediction(inputdata, parameters, mhc_class):
 
 		if attempt == 3:
 			print('Failed to connect to the API after 3 attempts. Exiting.')
+			print('The following command was attempted:')
+			print(command)
 			exit(0)
-
+	
 	return result
 
 # -------------------------------------
@@ -240,7 +296,8 @@ def parse_areas_file(parameters):
 	'''
 	with open(parameters['areas']) as inputfile:
 		return [line.rstrip() for line in inputfile]
-	 
+
+
 # -------------------------------------
 def run_population_coverage(inputfile, parameters, mhc_class, areas=['World']):
 
@@ -274,21 +331,19 @@ def run_population_coverage(inputfile, parameters, mhc_class, areas=['World']):
 		result = subprocess.run(command, shell=True, capture_output=True, text=True)
 
 		# Store the sequence and coverage in a dict
-		try:
-			coverage[area] = get_overall_results(result.stdout)
+		coverage[area] = get_overall_results(result.stdout)
 
-			if parameters['outputgraph'] == 'true':
-				fmt_area = area.replace(' ', '_').lower()
-				old_graphfile = join(parameters['outputdirectory'], 'popcov_' + fmt_area + '_' + mhc_class.lower() + '.png')
-				fields = inputfile.split('.')   
-				region = fields[1]
-				locus  = fields[2]
-				newfilename = fmt_area + '_MHC' + mhc_class + '_' + locus + '_' + region + '.png'
-				new_graphfile = join(fig_dir, newfilename)
-				rename(old_graphfile, new_graphfile)
+		fmt_area = area.replace(' ', '_').lower()
+		fields = inputfile.split('.')   
+		region = fields[1]
+		locus  = fields[2]
+		newfilename = fmt_area + '_MHC' + mhc_class + '_' + locus + '_' + region 
+		print(f'{newfilename} {coverage[area]}')
 
-		except:
-			coverage[area] = '\t\t'
+		if parameters['outputgraph'] == 'true':
+			old_graphfile = join(parameters['outputdirectory'], 'popcov_' + fmt_area + '_' + mhc_class.lower() + '.png')
+			new_graphfile = join(fig_dir, newfilename + '.png')
+			rename(old_graphfile, new_graphfile)
 
 	return coverage
 
@@ -423,9 +478,19 @@ def get_overall_results(pop_coverage_output):
 		str(pop_coverage_output) and returns a string containing the 
 		percent value of the total coverage
 	'''
-	results = '\t'.join(pop_coverage_output.split('\n')[2].rstrip().split('\t')[1:])
-	if not results:
-		results = '\t\t'
+	
+	if '* No result found! *' in pop_coverage_output:
+		return '\t0%\t'
+
+	try:
+		results = '\t'.join(pop_coverage_output.split('\n')[2].rstrip().split('\t')[1:])
+	except:
+		print('-- Exception --------------------')
+		print('No data found in this run:')
+		print(pop_coverage_output)
+		print('---------------------------------')
+		results = '\t0%\t'
+
 	return results
 
 # -------------------------------------
@@ -518,7 +583,7 @@ def run_API_prediction(parameters, mhc_class, epitope_items):
 	# Reuses existing prediction
 	if answer.lower() == 'y':
 		prediction = parse_prediction_file(prediction_file_name)
-	
+
 	# Not reusing prediction: rerunning it.
 	else:
 
