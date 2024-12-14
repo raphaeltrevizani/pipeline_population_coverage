@@ -445,7 +445,9 @@ def pop_coverage_single_region(epitope_regions, parameters, mhc_class, predictio
 	
 			for seq in dict_regions_peptides[region]:		
 				hlas = pred_results[seq]
-				num = region.split('-')[0]
+				num = '_'.join(region.split('-')[0:2])
+				num = num[:100]
+
 				cover_per_locus = dict()
 				
 				if locus == 'any':
@@ -551,6 +553,7 @@ def pop_coverage_all_regions(epitope_regions, parameters, mhc_class, prediction)
 
 # -------------------------------------
 def save_prediction(prediction, parameters, mhc_class, name=''):
+	
 	with open(name, 'w') as pred_save:
 		pred_save.write(prediction)
 
@@ -571,8 +574,11 @@ def parse_prediction_file(prediction_file_name):
 # -------------------------------------
 def run_API_prediction(parameters, mhc_class, epitope_items):
 
+	# Takes 10 first characters of sequence
+	part_seq = epitope_items[0][2][:100]
+	
 	# Check if the prediction files exist
-	prediction_file_name = join(parameters['temporarydirectory'], 'MHC-' + mhc_class + '_' + epitope_items[0][2] + '.tsv')
+	prediction_file_name = join(parameters['temporarydirectory'], 'MHC-' + mhc_class + '_' + part_seq + '.tsv')
 
 	# Checks if user wants to reuse existing prediction
 	answer = 'n'
@@ -622,7 +628,12 @@ def run(input_file, parameters, mhc_class):
 	# Gets the peptides from the csv input file
 	epitope_items = parse_csv_input(input_file)
 	
-	coverage_file_name = join(parameters['temporarydirectory'], 'popcov-' + mhc_class + '_' + epitope_items[0][2] + '.tsv')
+	min_size = int(max(parameters['mhc' + mhc_class.lower() + 'sizes'].split(',')))
+	print(min_size)
+	
+	epitope_items = [item for item in epitope_items if len(item[2]) >= min_size]
+
+	coverage_file_name = join(parameters['temporarydirectory'], 'popcov-' + mhc_class + '_' + epitope_items[0][2][:100] + '.tsv')
 	answer = 'n'
 	if file_exists(coverage_file_name):
 		print('Coverage file', coverage_file_name, 'found. Do you want to use it (y/n)?', end=' ') 
@@ -757,7 +768,7 @@ def parse_csv_input(csv_file):
 
 # -------------------------------------
 def empty_dict_regions():
-	return {'Central Africa': '\t\t', 'Central America': '\t\t', 'East Africa': '\t\t', 'East Asia': '\t\t', 'Europe': '\t\t', 'North Africa': '\t\t', 'North America': '\t\t', 'Northeast Asia': '\t\t', 'Oceania': '\t\t', 'South Africa': '\t\t', 'South America': '\t\t', 'South Asia': '\t\t', 'Southeast Asia': '\t\t', 'Southwest Asia': '\t\t', 'West Africa': '\t\t', 'West Indies': '\t\t', 'World': '\t\t'}
+	return {'Central Africa': '\tNA\t', 'Central America': '\tNA\t', 'East Africa': '\tNA\t', 'East Asia': '\tNA\t', 'Europe': '\tNA\t', 'North Africa': '\tNA\t', 'North America': '\tNA\t', 'Northeast Asia': '\tNA\t', 'Oceania': '\tNA\t', 'South Africa': '\tNA\t', 'South America': '\tNA\t', 'South Asia': '\tNA\t', 'Southeast Asia': '\tNA\t', 'Southwest Asia': '\tNA\t', 'West Africa': '\tNA\t', 'West Indies': '\tNA\t', 'World': '\tNA\t'}
 
 # -------------------------------------
 def empty_dict(loci):
@@ -806,7 +817,7 @@ def output_to_files(coverage_mhci, coverage_mhcii, parameters):
 				output_str += loci_mhcii_dict[loci_mhci_list][region] + '\t'
 			output_str += '\n'
 
-			with open(join(parameters['outputdirectory'], epitope+'.tsv'),'w') as outputfile:
+			with open(join(parameters['outputdirectory'], epitope[:100]+'.tsv'),'w') as outputfile:
 				outputfile.write(output_str)
 # -------------------------------------
 
